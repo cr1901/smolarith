@@ -70,6 +70,15 @@ class SignedDivider(Component):
                 n_sign.eq(self.inp.n[-1]),
             ]
 
+            # When dividing by 0, for RISCV compliance, we need the division to
+            # return -1. Without redirecting quotient calculation to the
+            # "both dividend/divisor positive" case, dividing a negative
+            # number by 0 returns 1. Note that the sign-bit
+            # processing doesn't need to be special-cased.
+            with m.If(self.inp.n == 0 & self.inp.a[-1]):
+                m.d.sync += a_sign.eq(0)
+                m.d.sync += n_sign.eq(0)
+
             # We are committed to do a calc at this point, so might as well
             # start it now.
             #
@@ -112,13 +121,15 @@ class SignedDivider(Component):
             with m.If(mag.o):
                 # If dividend/divisor are positive, subtract a positive
                 # shifted divisor from dividend.
-                with m.If(~self.inp.a[-1] & ~self.inp.n[-1]):
+                with m.If(~self.inp.a[-1] & ~self.inp.n[-1] |
+                          (self.inp.n == 0 & self.inp.a[-1])):
                     m.d.sync += quotient.eq(C(1) * shift_amt)
                     m.d.sync += remainder.eq(self.inp.a -
                                              (self.inp.n * C(1) * shift_amt))  # noqa: E501
                 # If dividend is negative, but divisor is positive, create a
                 # negative shifted divisor and subtract from the dividend.
-                with m.If(self.inp.a[-1] & ~self.inp.n[-1]):
+                with m.If(self.inp.a[-1] & ~self.inp.n[-1] &
+                          ~(self.inp.n == 0 & self.inp.a[-1])):
                     m.d.sync += quotient.eq(C(-1) * shift_amt)
                     m.d.sync += remainder.eq(self.inp.a -
                                              (self.inp.n * C(-1) * shift_amt))  # noqa: E501
