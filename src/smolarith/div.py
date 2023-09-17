@@ -141,7 +141,7 @@ class SignedDivider(Component):
                                                  (self.inp.n * C(1) * shift_amt))  # noqa: E501
                     with m.Else():
                         # Otherwise, zero-extend.
-                        m.d.sync += remainder.eq(self.inp.a -
+                        m.d.sync += remainder.eq(self.inp.a.as_unsigned() -
                                                  (self.inp.n.as_unsigned() * C(1) * shift_amt))  # noqa: E501
                 # If dividend is negative, but divisor is positive, create a
                 # negative shifted divisor and subtract from the dividend.

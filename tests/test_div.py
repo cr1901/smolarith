@@ -44,6 +44,14 @@ def test_reference_div(sim_mod, a, n, q, r, signed):
                                             (2049, 2, 1024, 1, False),
                                             # 100000000001
                                             (-2047, 2, -1023, -1, True),
+                                            # 100000000000
+                                            (2048, 2, 1024, 0, False),
+                                            # 100000000000
+                                            (-2048, 2, -1024, 0, True),
+                                            # 100000000000
+                                            (2048, 1, 2048, 0, False),
+                                            # 100000000000
+                                            (-2048, 1, -2048, 0, True),
                                             # 011111111111
                                             (2047, 2, 1023, 1, False),
                                             # 011111111111
@@ -65,9 +73,14 @@ def test_signed_unsigned_mismatch(sim_mod, a, n, q, r, signed):
             yield
 
         assert (yield m.outp.valid) == 1
-        assert (yield m.outp.q) == q
-        assert (yield m.outp.r) == r
         assert (yield m.outp.signed) == signed
+
+        if not signed:
+            assert (yield m.outp.q.as_unsigned()) == q
+            assert (yield m.outp.r.as_unsigned()) == r
+        else:
+            assert (yield m.outp.q) == q
+            assert (yield m.outp.r) == r
 
         yield
         assert (yield m.outp.valid) == 0
