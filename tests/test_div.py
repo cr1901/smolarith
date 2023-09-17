@@ -15,6 +15,7 @@ def test_reference_div(sim_mod, a, n, q, r):
     def testbench():
         yield m.inp.a.eq(a)
         yield m.inp.n.eq(n)
+        yield m.inp.signed.eq(1)
         yield m.inp.valid.eq(1)
         yield
 
@@ -27,6 +28,7 @@ def test_reference_div(sim_mod, a, n, q, r):
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.q) == q
         assert (yield m.outp.r) == r
+        assert (yield m.outp.signed) == 1
 
         yield
         assert (yield m.outp.valid) == 0
@@ -46,6 +48,7 @@ def test_riscv_compliance(sim_mod, a, n, q, r):
     def testbench():
         yield m.inp.a.eq(a)
         yield m.inp.n.eq(n)
+        yield m.inp.signed.eq(1)
         yield m.inp.valid.eq(1)
         yield
 
@@ -58,6 +61,7 @@ def test_riscv_compliance(sim_mod, a, n, q, r):
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.q) == q
         assert (yield m.outp.r) == r
+        assert (yield m.outp.signed) == 1
 
         yield
         assert (yield m.outp.valid) == 0
@@ -81,6 +85,7 @@ def test_div_8bit_signed(sim_mod):
             yield m.inp.a.eq(a)
             for n in range(-2**(m.width-1), 2**(m.width-1)):
                 yield m.inp.n.eq(n)
+                yield m.inp.signed.eq(1)
                 yield m.inp.valid.eq(1)
                 yield
 
@@ -91,6 +96,7 @@ def test_div_8bit_signed(sim_mod):
                     yield
 
                 assert (yield m.outp.valid) == 1
+                assert (yield m.outp.signed) == 1
                 if a == -2**(m.width-1) and n == -1:
                     assert (yield m.outp.q) == -2**(m.width-1)
                     assert (yield m.outp.r) == 0

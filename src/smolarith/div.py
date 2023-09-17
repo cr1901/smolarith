@@ -10,6 +10,7 @@ def divider_input_signature(width, signed=False):
     return Signature({
         "a": Out(shape_cls(width)),  # Dividend
         "n": Out(shape_cls(width)),  # Divisor
+        "signed": Out(1),
         "rdy": In(1),
         "valid": Out(1)
     })
@@ -21,6 +22,7 @@ def divider_output_signature(width, signed=False):
     return Signature({
         "q": Out(shape_cls(width)),
         "r": Out(shape_cls(width)),
+        "signed": In(1),
         "rdy": In(1),
         "valid": Out(1)
     })
@@ -47,6 +49,7 @@ class SignedDivider(Component):
         remainder = Signal(2*self.width)
         iters_left = Signal(range(self.width))
         in_progress = Signal()
+        signed_div = Signal()
         a_sign = Signal()
         n_sign = Signal()
 
@@ -68,6 +71,7 @@ class SignedDivider(Component):
                 iters_left.eq(self.width - 1),
                 a_sign.eq(self.inp.a[-1]),
                 n_sign.eq(self.inp.n[-1]),
+                signed_div.eq(self.inp.signed)
             ]
 
             # When dividing by 0, for RISCV compliance, we need the division to
@@ -186,7 +190,10 @@ class SignedDivider(Component):
                                              (self.inp.n * C(1) * shift_amt))  # noqa: E501
 
             with m.If(iters_left - 1 == 0):
-                m.d.sync += self.outp.valid.eq(1)
+                m.d.sync += [
+                    self.outp.signed.eq(signed_div),
+                    self.outp.valid.eq(1)
+                ]
 
         return m
 
