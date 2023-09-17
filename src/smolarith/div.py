@@ -130,33 +130,47 @@ class SignedDivider(Component):
             with m.If(mag.o):
                 # If dividend/divisor are positive, subtract a positive
                 # shifted divisor from dividend.
-                with m.If((~self.inp.a[-1] & ~self.inp.n[-1]) |
+                with m.If(~self.inp.signed |
+                          (~self.inp.a[-1] & ~self.inp.n[-1]) |
                           (self.inp.a[-1] & self.inp.n == 0)):
                     m.d.sync += quotient.eq(C(1) * shift_amt)
-                    m.d.sync += remainder.eq(self.inp.a -
-                                             (self.inp.n * C(1) * shift_amt))  # noqa: E501
+                    with m.If(self.inp.signed):
+                        # If high bit is set, and, a signed div,
+                        # we want to sign-extend.
+                        m.d.sync += remainder.eq(self.inp.a -
+                                                 (self.inp.n * C(1) * shift_amt))  # noqa: E501
+                    with m.Else():
+                        # Otherwise, zero-extend.
+                        m.d.sync += remainder.eq(self.inp.a -
+                                                 (self.inp.n.as_unsigned() * C(1) * shift_amt))  # noqa: E501
                 # If dividend is negative, but divisor is positive, create a
                 # negative shifted divisor and subtract from the dividend.
-                with m.If(self.inp.a[-1] & ~self.inp.n[-1] &
+                with m.If(self.inp.signed & self.inp.a[-1] & ~self.inp.n[-1] &
                           ~(self.inp.n == 0 & self.inp.a[-1])):
                     m.d.sync += quotient.eq(C(-1) * shift_amt)
                     m.d.sync += remainder.eq(self.inp.a -
                                              (self.inp.n * C(-1) * shift_amt))  # noqa: E501
                 # If dividend is positive, but divisor is negative, create a
                 # positive shifted divisor and subtract from the dividend.
-                with m.If(~self.inp.a[-1] & self.inp.n[-1]):
+                with m.If(self.inp.signed & ~self.inp.a[-1] & self.inp.n[-1]):
                     m.d.sync += quotient.eq(C(-1) * shift_amt)
                     m.d.sync += remainder.eq(self.inp.a -
                                              (self.inp.n * C(-1) * shift_amt))  # noqa: E501
                 # If dividend/divisor is negative, subtract a negative
                 # shifted divisor and subtract from the dividend.
-                with m.If(self.inp.a[-1] & self.inp.n[-1]):
+                with m.If(self.inp.signed & self.inp.a[-1] & self.inp.n[-1]):
                     m.d.sync += quotient.eq(C(1) * shift_amt)
                     m.d.sync += remainder.eq(self.inp.a -
                                              (self.inp.n * C(1) * shift_amt))  # noqa: E501
             with m.Else():
                 m.d.sync += quotient.eq(0)
-                m.d.sync += remainder.eq(self.inp.a)
+                with m.If(self.inp.signed):
+                    # If high bit is set, and, a signed div,
+                    # we want to sign-extend.
+                    m.d.sync += remainder.eq(self.inp.a)
+                with m.Else():
+                    # Otherwise, zero-extend.
+                    m.d.sync += remainder.eq(self.inp.a.as_unsigned())
 
         # Main division loop.
         with m.If(in_progress):
@@ -177,25 +191,32 @@ class SignedDivider(Component):
             with m.If(mag.o):
                 # If dividend/divisor are positive, subtract a positive
                 # shifted divisor from dividend.
-                with m.If(~a_sign & ~n_sign):
+                with m.If(~signed_div | (~a_sign & ~n_sign)):
                     m.d.sync += quotient.eq(quotient + C(1) * shift_amt)
-                    m.d.sync += remainder.eq(remainder -
-                                             (self.inp.n * C(1) * shift_amt))  # noqa: E501
+                    with m.If(signed_div):
+                        # If high bit is set, and, a signed div,
+                        # we want to sign-extend.
+                        m.d.sync += remainder.eq(remainder -
+                                                 (self.inp.n * C(1) * shift_amt))  # noqa: E501
+                    with m.Else():
+                        # Otherwise, zero-extend.
+                        m.d.sync += remainder.eq(remainder -
+                                                 (self.inp.n.as_unsigned() * C(1) * shift_amt))  # noqa: E501
                 # If dividend is negative, but divisor is positive, create a
                 # negative shifted divisor and subtract from the dividend.
-                with m.If(a_sign & ~n_sign):
+                with m.If(signed_div & a_sign & ~n_sign):
                     m.d.sync += quotient.eq(quotient + C(-1) * shift_amt)
                     m.d.sync += remainder.eq(remainder -
                                              (self.inp.n * C(-1) * shift_amt))  # noqa: E501
                 # If dividend is positive, but divisor is negative, create a
                 # positive shifted divisor and subtract from the dividend.
-                with m.If(~a_sign & n_sign):
+                with m.If(signed_div & ~a_sign & n_sign):
                     m.d.sync += quotient.eq(quotient + C(-1) * shift_amt)
                     m.d.sync += remainder.eq(remainder -
                                              (self.inp.n * C(-1) * shift_amt))  # noqa: E501
                 # If dividend/divisor are negative, subtract a negative
                 # shifted divisor from dividend.
-                with m.If(a_sign & n_sign):
+                with m.If(signed_div & a_sign & n_sign):
                     m.d.sync += quotient.eq(quotient + C(1) * shift_amt)
                     m.d.sync += remainder.eq(remainder -
                                              (self.inp.n * C(1) * shift_amt))  # noqa: E501
