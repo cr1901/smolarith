@@ -108,3 +108,41 @@ def test_div_8bit_signed(sim_mod):
                     assert (yield m.outp.r) == fmod(a, n)
 
     sim.run(sync_processes=[testbench])
+
+
+@pytest.mark.module(SignedDivider(8))
+@pytest.mark.clks((1.0 / 12e6,))
+def test_div_8bit_unsigned(sim_mod):
+    sim, m = sim_mod
+
+    def testbench():
+        # Pipeline previous inputs... inputs to prev.append() are what
+        # will go into the multiplier at the next active edge.
+        # Outputs from prev.popleft()  are what went into the multiplier
+        # "m.width - 1" active edges ago. This leads to a latency of
+        # "m.width" clock cycles/ticks since the multiplier saw the inputs.
+
+        for a in range(0, 2**m.width):
+            yield m.inp.a.eq(a)
+            for n in range(0, 2**m.width):
+                yield m.inp.n.eq(n)
+                yield m.inp.signed.eq(0)
+                yield m.inp.valid.eq(1)
+                yield
+
+                yield m.inp.valid.eq(0)  # Only schedule one xfer.
+                yield m.outp.rdy.eq(1)  # Immediately ready for retrieval.
+                yield
+                for _ in range(7):
+                    yield
+
+                assert (yield m.outp.valid) == 1
+                assert (yield m.outp.signed) == 0
+                if n == 0:
+                    assert (yield m.outp.q) == 2**m.width
+                    assert (yield m.outp.r) == a
+                else:
+                    assert (yield m.outp.q) == int(a / n)
+                    assert (yield m.outp.r) == fmod(a, n)
+
+    sim.run(sync_processes=[testbench])

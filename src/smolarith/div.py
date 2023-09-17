@@ -1,27 +1,23 @@
-from amaranth import Elaboratable, Module, Signal, signed, unsigned, C
+from amaranth import Elaboratable, Module, Signal, signed, C
 from amaranth.lib.wiring import Signature, In, Out, Component
 
 amsigned = signed
 
 
-def divider_input_signature(width, signed=False):
-    shape_cls = amsigned if signed else unsigned
-
+def divider_input_signature(width):
     return Signature({
-        "a": Out(shape_cls(width)),  # Dividend
-        "n": Out(shape_cls(width)),  # Divisor
+        "a": Out(signed(width=width)),  # Dividend
+        "n": Out(signed(width=width)),  # Divisor
         "signed": Out(1),
         "rdy": In(1),
         "valid": Out(1)
     })
 
 
-def divider_output_signature(width, signed=False):
-    shape_cls = amsigned if signed else unsigned
-
+def divider_output_signature(width):
     return Signature({
-        "q": Out(shape_cls(width)),
-        "r": Out(shape_cls(width)),
+        "q": Out(signed(width=width)),
+        "r": Out(signed(width=width)),
         "signed": In(1),
         "rdy": In(1),
         "valid": Out(1)
@@ -32,8 +28,8 @@ class SignedDivider(Component):
     @property
     def signature(self):
         return Signature({
-            "inp": In(divider_input_signature(self.width, signed=True)),
-            "outp": Out(divider_output_signature(self.width, signed=True))
+            "inp": In(divider_input_signature(self.width)),
+            "outp": Out(divider_output_signature(self.width))
         })
 
     def __init__(self, width=8):
@@ -77,9 +73,12 @@ class SignedDivider(Component):
             # When dividing by 0, for RISCV compliance, we need the division to
             # return -1. Without redirecting quotient calculation to the
             # "both dividend/divisor positive" case, dividing a negative
-            # number by 0 returns 1. Note that the sign-bit
-            # processing doesn't need to be special-cased.
-            with m.If(self.inp.n == 0 & self.inp.a[-1]):
+            # number by 0 returns 1. Note that the sign-bit processing doesn't
+            # need to be special-cased, I do it anyway in case I see some
+            # patterns I can refactor out.
+            with m.If(self.inp.signed &
+                      (self.inp.n == 0) &
+                      self.inp.a[-1]):
                 m.d.sync += a_sign.eq(0)
                 m.d.sync += n_sign.eq(0)
 
@@ -117,16 +116,22 @@ class SignedDivider(Component):
             # We can use a magnitude comparator for this.
 
             shift_amt = 2**(self.width - 1)
-            m.d.comb += [
-                mag.divisor.eq(self.inp.n * shift_amt),
-                mag.dividend.eq(self.inp.a)
-            ]
+            with m.If(self.inp.signed):
+                m.d.comb += [
+                    mag.divisor.eq(self.inp.n * shift_amt),
+                    mag.dividend.eq(self.inp.a)
+                ]
+            with m.Else():
+                m.d.comb += [
+                    mag.divisor.eq(self.inp.n.as_unsigned() * shift_amt),
+                    mag.dividend.eq(self.inp.a.as_unsigned())
+                ]
 
             with m.If(mag.o):
                 # If dividend/divisor are positive, subtract a positive
                 # shifted divisor from dividend.
-                with m.If(~self.inp.a[-1] & ~self.inp.n[-1] |
-                          (self.inp.n == 0 & self.inp.a[-1])):
+                with m.If((~self.inp.a[-1] & ~self.inp.n[-1]) |
+                          (self.inp.a[-1] & self.inp.n == 0)):
                     m.d.sync += quotient.eq(C(1) * shift_amt)
                     m.d.sync += remainder.eq(self.inp.a -
                                              (self.inp.n * C(1) * shift_amt))  # noqa: E501
@@ -158,10 +163,16 @@ class SignedDivider(Component):
             m.d.sync += iters_left.eq(iters_left - 1)
 
             shift_amt = (1 << (iters_left - 1).as_unsigned())
-            m.d.comb += [
-                mag.divisor.eq(self.inp.n * shift_amt),
-                mag.dividend.eq(remainder)
-            ]
+            with m.If(self.inp.signed):
+                m.d.comb += [
+                    mag.divisor.eq(self.inp.n * shift_amt),
+                    mag.dividend.eq(remainder)
+                ]
+            with m.Else():
+                m.d.comb += [
+                    mag.divisor.eq(self.inp.n.as_unsigned() * shift_amt),
+                    mag.dividend.eq(remainder)
+                ]
 
             with m.If(mag.o):
                 # If dividend/divisor are positive, subtract a positive
