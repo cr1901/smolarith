@@ -242,3 +242,104 @@ class PipelinedMulSigned(Elaboratable):
         m.d.comb += self.o.eq(pipeline_out[self.width - 1])
 
         return m
+
+
+class PipelinedMulSignedUnsigned(Elaboratable):
+    def __init__(self, width=8, debug=False):
+        self.width = width
+        self.a = Signal(signed(self.width))  # Multiplicand
+        self.b = Signal(unsigned(self.width))  # Multiplier
+        self.o = Signal(signed(2*self.width))
+        self.debug = debug
+
+    #   x is signed, y is unsigned. Note that the actual formula is the same
+    #   as the unsigned-unsigned case aside from the interpretation of the
+    #   bit patterns (because adding shifted copies of "x" works the same
+    #   regardless of whether "x" is positive or negative:
+    #
+    #   twoscomp(x) + twoscomp(y) = (2^n - x) + (2^n - y) =
+    #   2^(n + 1) - (x + y) = twocomp(x + y) with an additional bit.
+    #
+    #                   x7x6x5x4x3x2x1x0
+    #                 * y7y6y5y4y3y2y1y0
+    #                   ----------------
+    #                   x7x6x5x4x3x2x1x0: z0 = x7x6x5x4x3x2x1x0*y0
+    #                 x7x6x5x4x3x2x1x0: z1 = (x7x6x5x4x3x2x1x0*y1 << 1) + z0
+    #               x7x6x5x4x3x2x1x0: z2 = (x7x6x5x4x3x2x1x0*y2 << 2) + z1
+    #             x7x6x5x4x3x2x1x0: z3 = (x7x6x5x4x3x2x1x0*y3 << 3) + z2
+    #           x7x6x5x4x3x2x1x0: z4 = (x7x6x5x4x3x2x1x0*y4 << 4) + z3
+    #         x7x6x5x4x3x2x1x0: z5 = (x7x6x5x4x3x2x1x0*y5 << 5) + z4
+    #       x7x6x5x4x3x2x1x0: z6 = (x7x6x5x4x3x2x1x0*y6 << 6) + z5
+    #   + x7x6x5x4x3x2x1x0: z7 = (x7x6x5x4x3x2x1x0*y7 << 7) + z6
+
+    def elaborate(self, plat):
+        def probe_pipeline_stage(i):
+            if i == 0:
+                stage_out = Signal.like(pipeline_out[0])
+                m.d.comb += stage_out.eq(pipeline_out[0])
+                self.pin = pipeline_in
+                self.pout = pipeline_out
+            else:
+                stage_ina = Signal.like(self.pin[i - 1].a)
+                stage_inb = Signal.like(self.pin[i - 1].b)
+                m.d.comb += stage_ina.eq(self.pin[i - 1].a)
+                m.d.comb += stage_inb.eq(self.pin[i - 1].b)
+
+                stage_out = Signal.like(self.pout[i])
+                m.d.comb += stage_out.eq(self.pout[i])
+
+        m = Module()
+
+        pipeline_in = Signal(ArrayLayout(
+                                         StructLayout(members={
+                                            "a": signed(self.a.width),
+                                            "b": unsigned(self.b.width)
+                                         }),
+                                         self.width))
+
+        # Relies on the optimizer to realize that not all 2*self.width^2
+        # bits are actually used, regardless of whether we're shift-and-adding
+        # positive or negative _sign-extended_ numbers:
+        #
+        # For example, consider these 2-bit signed numbers sign-extended
+        # to 3-bits and added together, resulting in 3-bit signed numbers.
+        # There are three possible cases a shift-add stage can see:
+        #
+        #               Positive:    Negative:   Negative, next add suppressed:  # noqa: E501
+        # Accumulator:  000          11?         11?
+        # Incoming:   + 00?        + 11?       + 000
+        #             -----        -----       -----
+        # Result Acc:   0??          1??         11?
+        #
+        # The sign bit in the result retains it's value in all cases, and
+        # so (hopefully) the optimizer knows there's no reason to calculate it
+        # for certain bits and instead just propogate the sign bit from input
+        # stage.
+        pipeline_out = Signal(ArrayLayout(signed(self.width*2), self.width))
+        probe_pipeline_stage(0)
+
+        m.d.sync += [
+            # Multiplier is positive; pass through the multiplicand
+            # and multiplier unchanged. The multiplicand's signedness
+            # doesn't matter- from the multiplier's POV, either we're
+            # adding positive numbers or adding negative numbers together.
+            pipeline_in[0].a.eq(self.a),
+            pipeline_in[0].b.eq(self.b)
+        ]
+        m.d.sync += pipeline_out[0].eq(self.a * self.b[0])
+
+        # The rest should be the same as an unsigned multiplier.
+        for i in range(1, self.width):
+            if self.debug:
+                probe_pipeline_stage(i)
+
+            m.d.sync += pipeline_in[i].eq(pipeline_in[i - 1])
+            # This relies on the optimizer realizing we're doing a mul by a
+            # _zero-extended_ 1 bit number (pipeline_in[i - 1].b[i]).
+            m.d.sync += pipeline_out[i].eq(((pipeline_in[i - 1].a *
+                                             pipeline_in[i - 1].b[i]) << i) +
+                                           pipeline_out[i - 1])
+
+        m.d.comb += self.o.eq(pipeline_out[self.width - 1])
+
+        return m
