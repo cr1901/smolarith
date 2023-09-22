@@ -1,4 +1,4 @@
-from amaranth import Elaboratable, Module, Signal, signed, unsigned
+from amaranth import Elaboratable, Module, Signal, signed, unsigned, Mux, Cat
 from amaranth.lib.data import ArrayLayout, StructLayout
 
 from amaranth.lib.enum import Enum, auto
@@ -154,9 +154,6 @@ class PipelinedMul(Elaboratable):
         pipeline_out = Signal(ArrayLayout(signed(self.width*2), self.width))
         probe_pipeline_stage(0)
 
-        def twoscomp(s):
-            return ~s + 1
-
         # If the multiplier is negative, and both inputs are signed,
         # we need to twos-complement the inputs. Since the inputs are otherwise
         # unmodified, we only need do this in the input stage.
@@ -165,42 +162,37 @@ class PipelinedMul(Elaboratable):
                 # If multiplier is negative, then we need to _subtract_ the
                 # multiplicand from 0... which is the same as adding the twos
                 # complement! This also works if the multiplicand is negative!
-                pipeline_in[0].a.eq(twoscomp(self.a)),
+                pipeline_in[0].a.eq(-self.a),
                 # In twos complement, each bit doesn't directly correspond to
                 # whether an add should be suppressed or not; the twos
                 # complement of the value does! This also works for the
                 # negative-most multiplier, since we don't care about
                 # signed-ness when querying each individual bit.
-                pipeline_in[0].b.eq(twoscomp(self.b))
+                pipeline_in[0].b.eq(-self.b)
             ]
-            m.d.sync += pipeline_out[0].eq(twoscomp(self.a) *
-                                           twoscomp(self.b)[0])
+            m.d.sync += pipeline_out[0].eq(-self.a * (-self.b)[0])
 
-        # Unsigned case- nominally identical to the Else() branch, but sign
-        # extension of input "a" needs to be suppressed.
-        with m.Elif(self.sign == Sign.UNSIGNED):
-            m.d.sync += [
-                # If multiplier is positive, then pass through the multiplicand
-                # and multiplier unchanged. Quash sign-extension of "a".
-                pipeline_in[0].a.eq(self.a.as_unsigned()),
-                pipeline_in[0].b.eq(self.b.as_unsigned())
-            ]
-            m.d.sync += pipeline_out[0].eq(self.a.as_unsigned() * self.b[0])
-
-        # If the multiplier is positive and either a or b is signed.
+        # If multiplier is positive, then pass through the multiplicand
+        # and multiplier unchanged- zero-extend if unsigned, sign-extend if
+        # negative.
+        # Aside from sign-extension (to accommodate the most-negative value of
+        # the multiplicand in the above branch), the multiplicand's signedness
+        # doesn't matter. From the multiplier's POV, either we're adding
+        # positive numbers or adding negative numbers together.
         with m.Else():
+            # Quash sign-extension of "a" if unsigned multiply.
+            maybe_sign_extended_a = Mux(self.sign == Sign.UNSIGNED,
+                                        Cat(self.a, 0), self.a)
             m.d.sync += [
                 # If multiplier is positive, then pass through the multiplicand
-                # and multiplier unchanged. The multiplicand's signedness
-                # doesn't matter- from the multiplier's POV, either we're
-                # adding positive numbers or adding negative numbers together.
-                pipeline_in[0].a.eq(self.a),
+                # and multiplier unchanged.
+                pipeline_in[0].a.eq(maybe_sign_extended_a),
                 pipeline_in[0].b.eq(self.b)
             ]
-            m.d.sync += pipeline_out[0].eq(self.a * self.b[0])
+            m.d.sync += pipeline_out[0].eq(maybe_sign_extended_a * self.b[0])
 
         # With the above out of the way, the main multiplying stages should
-        # be identical, regardless of signedness (because adding shift copies
+        # be identical regardless of signedness (because adding shift copies
         # works the same regardless of sign). Only the interpretation of
         # the bit patterns differ, depending on signedness.
         for i in range(1, self.width):
