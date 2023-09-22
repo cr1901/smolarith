@@ -1,6 +1,5 @@
 import pytest
-from smolarith.mul import PipelinedMul, PipelinedMulSigned, \
-    PipelinedMulSignedUnsigned
+from smolarith.mul import PipelinedMul, Sign
 from collections import deque
 
 
@@ -12,12 +11,15 @@ def all_values_tb(request, sim_mod):
     if mode == "unsigned":
         a_range = range(0, 2**m.width)
         b_range = range(0, 2**m.width)
+        sign = Sign.UNSIGNED
     elif mode == "signed":
         a_range = range(-2**(m.width-1), 2**(m.width-1))
         b_range = range(-2**(m.width-1), 2**(m.width-1))
+        sign = Sign.SIGNED
     elif mode == "signed-unsigned":
         a_range = range(-2**(m.width-1), 2**(m.width-1))
         b_range = range(0, 2**m.width)
+        sign = Sign.SIGNED_UNSIGNED
     else:
         raise ValueError("mode must be one of: \"unsigned\", \"signed\", or"
                          f" \"signed-unsigned\", not {mode}")
@@ -30,16 +32,28 @@ def all_values_tb(request, sim_mod):
         # "m.width" clock cycles/ticks since the multiplier saw the inputs.
         prev = deque([(0, 0)]*m.width)
 
+        yield m.sign.eq(sign)
+
         for a in a_range:
-            yield m.a.eq(a)
+            if mode == "unsigned":
+                yield m.a.as_unsigned().eq(a)
+            else:
+                yield m.a.eq(a)
+
             for b in b_range:
-                yield m.b.eq(b)
+                if mode == "unsigned":
+                    yield m.b.as_unsigned().eq(b)
+                else:
+                    yield m.b.eq(b)
 
                 yield
                 (a_c, b_c) = prev.popleft()
                 prev.append((a, b))
 
-                assert a_c*b_c == (yield m.o)
+                if mode == "unsigned":
+                    assert a_c*b_c == (yield m.o.as_unsigned())
+                else:
+                    assert a_c*b_c == (yield m.o)
 
                 # print((a, b), (a_c, b_c), a_c*b_c, (yield m.o))
                 # for i in range(8):
@@ -53,7 +67,10 @@ def all_values_tb(request, sim_mod):
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            assert a_c*b_c == (yield m.o)
+            if mode == "unsigned":
+                assert a_c*b_c == (yield m.o.as_unsigned())
+            else:
+                assert a_c*b_c == (yield m.o)
 
     return testbench
 
@@ -63,9 +80,9 @@ def all_values_tb(request, sim_mod):
                          [pytest.param("unsigned",
                                        marks=pytest.mark.module(PipelinedMul(8, debug=True))),  # noqa: E501
                           pytest.param("signed",
-                                       marks=pytest.mark.module(PipelinedMulSigned(8, debug=True))),  # noqa: E501
+                                       marks=pytest.mark.module(PipelinedMul(8, debug=True))),  # noqa: E501
                           pytest.param("signed-unsigned",
-                                       marks=pytest.mark.module(PipelinedMulSignedUnsigned(8, debug=True)))],  # noqa: E501
+                                       marks=pytest.mark.module(PipelinedMul(8, debug=True)))],  # noqa: E501
                          indirect=True)
 def test_pipelined_mul(sim_mod, all_values_tb):
     sim, m = sim_mod
