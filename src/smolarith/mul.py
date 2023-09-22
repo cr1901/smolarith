@@ -45,6 +45,7 @@ class PipelinedMul(Elaboratable):
         self.b = Signal(signed(self.width))  # Multiplier
         self.o = Signal(signed(2*self.width))
         self.sign = Signal(Sign, reset=Sign.UNSIGNED)
+        self.sign_out = Signal(Sign, reset=Sign.UNSIGNED)
         self.debug = debug
 
     #   Unsigned, signed-unsigned case. The actual formula is the same
@@ -102,8 +103,10 @@ class PipelinedMul(Elaboratable):
             else:
                 stage_ina = Signal.like(self.pin[i - 1].a)
                 stage_inb = Signal.like(self.pin[i - 1].b)
+                stage_ins = Signal.like(self.pin[i - 1].s)
                 m.d.comb += stage_ina.eq(self.pin[i - 1].a)
                 m.d.comb += stage_inb.eq(self.pin[i - 1].b)
+                m.d.comb += stage_ins.eq(self.pin[i - 1].s)
 
                 stage_out = Signal.like(self.pout[i])
                 m.d.comb += stage_out.eq(self.pout[i])
@@ -128,9 +131,14 @@ class PipelinedMul(Elaboratable):
         pipeline_in = Signal(ArrayLayout(
                                          StructLayout(members={
                                             "a": signed(self.a.width + 1),
-                                            "b": unsigned(self.b.width)
+                                            "b": unsigned(self.b.width),
+                                            "s": Sign
                                          }),
                                          self.width))
+
+        # FIXME: Does not work as intended. It is ignored.
+        # for i in range(self.width):
+        #     pipeline_in[i].s.reset = Sign.UNSIGNED
 
         # Relies on the optimizer to realize that not all 2*self.width^2
         # bits are actually used, regardless of whether we're shift-and-adding
@@ -153,6 +161,8 @@ class PipelinedMul(Elaboratable):
         # stage.
         pipeline_out = Signal(ArrayLayout(signed(self.width*2), self.width))
         probe_pipeline_stage(0)
+
+        m.d.sync += pipeline_in[0].s.eq(self.sign)
 
         # If the multiplier is negative, and both inputs are signed,
         # we need to twos-complement the inputs. Since the inputs are otherwise
@@ -207,5 +217,6 @@ class PipelinedMul(Elaboratable):
                                            pipeline_out[i - 1])
 
         m.d.comb += self.o.eq(pipeline_out[self.width - 1])
+        m.d.comb += self.sign_out.eq(pipeline_in[self.width - 1].s)
 
         return m

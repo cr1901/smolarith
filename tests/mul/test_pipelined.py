@@ -2,6 +2,7 @@ import pytest
 from smolarith.mul import PipelinedMul, Sign
 from collections import deque
 from itertools import product
+import random
 
 
 def mk_pipelined_testbench(m, abs_iter):
@@ -39,7 +40,7 @@ def mk_pipelined_testbench(m, abs_iter):
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            if s == Sign.UNSIGNED:
+            if (yield m.sign_out) == Sign.UNSIGNED.value:
                 assert a_c*b_c == (yield m.o.as_unsigned())
             else:
                 assert a_c*b_c == (yield m.o)
@@ -56,7 +57,7 @@ def mk_pipelined_testbench(m, abs_iter):
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            if s == Sign.UNSIGNED:
+            if (yield m.sign_out) == Sign.UNSIGNED.value:
                 assert a_c*b_c == (yield m.o.as_unsigned())
             else:
                 assert a_c*b_c == (yield m.o)
@@ -82,6 +83,30 @@ def all_values_tb(request, sim_mod):
     return mk_pipelined_testbench(m, product(a_range, b_range, (mode,)))
 
 
+@pytest.fixture
+def random_tb(sim_mod):
+    _, m = sim_mod
+
+    def random_muls():
+        for i in range(256):
+            a = random.randint(-2**31, (2**31)-1)
+            b = random.randint(-2**31, (2**31)-1)
+            s = random.choice([Sign.UNSIGNED, Sign.SIGNED,
+                               Sign.SIGNED_UNSIGNED])
+
+            if s == Sign.UNSIGNED:
+                if a < 0:
+                    a *= -1
+                if b < 0:
+                    b *= -1
+            elif s == Sign.SIGNED_UNSIGNED and b < 0:
+                b *= -1
+
+            yield (a, b, s)
+
+    return mk_pipelined_testbench(m, random_muls())
+
+
 @pytest.mark.module(PipelinedMul(8, debug=True))
 @pytest.mark.clks((1.0 / 12e6,))
 @pytest.mark.parametrize("all_values_tb", [Sign.UNSIGNED, Sign.SIGNED,
@@ -90,3 +115,11 @@ def all_values_tb(request, sim_mod):
 def test_pipelined_mul(sim_mod, all_values_tb):
     sim, m = sim_mod
     sim.run(sync_processes=[all_values_tb])
+
+
+@pytest.mark.module(PipelinedMul(32, debug=True))
+@pytest.mark.clks((1.0 / 12e6,))
+def test_random_32b(sim_mod, random_tb):
+    sim, m = sim_mod
+    random.seed(0)
+    sim.run(sync_processes=[random_tb])
