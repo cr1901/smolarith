@@ -3,22 +3,22 @@
 
 [metadata]
 groups = ["default", "dev"]
-cross_platform = true
-static_urls = false
-lock_version = "4.3"
-content_hash = "sha256:505a45e3311f6f5f41fdee8414b73924e8b9583a37465a54458df30235d73cb4"
+strategy = ["cross_platform"]
+lock_version = "4.4"
+content_hash = "sha256:fd7a80cd7c17296492419ca636defbcc8099b19b77293c368cf11b25ab7e8dfd"
 
 [[package]]
 name = "amaranth"
-version = "0.4.dev197+g11d5bb1"
+version = "0.4.1"
 requires_python = "~=3.8"
-git = "https://github.com/amaranth-lang/amaranth"
-revision = "11d5bb19eb34463918c07dc5e2e0eac7dbf822b0"
 summary = "Amaranth hardware definition language"
 dependencies = [
     "Jinja2~=3.0",
     "importlib-resources; python_version < \"3.9\"",
     "pyvcd<0.5,>=0.2.2",
+]
+files = [
+    {file = "amaranth-0.4.1-py3-none-any.whl", hash = "sha256:f7b9e85b74f0e6be0468cc1a02b89cfc583ee2d9cee882f6c17ec6d0b07381ec"},
 ]
 
 [[package]]

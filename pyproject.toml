@@ -6,7 +6,7 @@ authors = [
     {name = "William D. Jones", email = "thor0505@comcast.net"},
 ]
 dependencies = [
-    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
+    "amaranth>=0.4.1",
 ]
 requires-python = ">=3.8"
 readme = "README.md"
@@ -29,3 +29,6 @@ markers = [
 dev = [
     "pytest>=7.4.2",
 ]
+
+[tool.pdm.scripts]
+test = "pytest"

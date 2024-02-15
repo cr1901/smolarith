@@ -25,16 +25,12 @@ def divider_output_signature(width):
 
 
 class SignedDivider(Component):
-    @property
-    def signature(self):
-        return Signature({
+    def __init__(self, width=8):
+        self.width = width
+        super().__init__({
             "inp": In(divider_input_signature(self.width)),
             "outp": Out(divider_output_signature(self.width))
         })
-
-    def __init__(self, width=8):
-        self.width = width
-        super().__init__()
 
     def elaborate(self, platform):
         m = Module()
