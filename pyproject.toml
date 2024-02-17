@@ -29,6 +29,17 @@ markers = [
 dev = [
     "pytest>=7.4.2",
 ]
+doc = [
+    "sphinx>=7.1.2",
+    "sphinx-rtd-theme>=2.0.0",
+    "myst-parser>=2.0.0",
+    "sphinx-autobuild>=2021.3.14",
+]
 
 [tool.pdm.scripts]
 test = "pytest"
+test-doc = { composite =["doc-linkck", "_doc-test"] } 
+doc = "sphinx-build doc/ doc/_build/"
+_doc-test = "sphinx-build -b doctest doc/ doc/_build"
+doc-linkck = "sphinx-build doc/ doc/_linkcheck/ -b linkcheck"
+doc-auto = "sphinx-autobuild doc/ doc/_build/ --watch src/smolarith"
