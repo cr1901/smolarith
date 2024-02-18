@@ -8,9 +8,6 @@ __pycache__/
 /.pdm-python
 /.venv
 
-# pytest
-/.pytest_cache
-
 # Amaranth
 /build*
 

@@ -17,6 +17,7 @@ requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pytest.ini_options]
+addopts = "--doctest-glob=\"*.md\""
 pythonpath = [
   "src/",
 ]
@@ -25,9 +26,19 @@ markers = [
   "module: top-level module to simulate."
 ]
 
+[tool.ruff]
+src = [ "src", "tests" ]  # https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
+line-length = 80  # flake8 compat
+# These will catch missing docstrings and other nits, which pydoclint doesn't.
+lint.select = ["D"]
+lint.pydocstyle.convention = "numpy"
+# I don't see the need to document tests like they're a public API.
+lint.per-file-ignores = { "tests/**/test_*.py" = ["D103", "D100"] }
+
 [tool.pdm.dev-dependencies]
 dev = [
     "pytest>=7.4.2",
+    "pytest-sphinx>=0.6.0",
 ]
 doc = [
     "sphinx>=7.1.2",
@@ -35,11 +46,14 @@ doc = [
     "myst-parser>=2.0.0",
     "sphinx-autobuild>=2021.3.14",
 ]
+lint = [
+    "ruff>=0.2.2",
+    "pydoclint[flake8]>=0.4.1",
+]
 
 [tool.pdm.scripts]
 test = "pytest"
-test-doc = { composite =["doc-linkck", "_doc-test"] } 
+lint = { composite = ["ruff check", "flake8", "test -k doc"] }
 doc = "sphinx-build doc/ doc/_build/"
-_doc-test = "sphinx-build -b doctest doc/ doc/_build"
 doc-linkck = "sphinx-build doc/ doc/_linkcheck/ -b linkcheck"
 doc-auto = "sphinx-autobuild doc/ doc/_build/ --watch src/smolarith"

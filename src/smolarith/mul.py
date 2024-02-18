@@ -11,7 +11,9 @@ class Sign(Enum):
 
 
 class NaiveMul(Elaboratable):
-    def __init__(self, width=8):
+    """Return an iterator that yields values from each of the phases."""
+
+    def __init__(self, width=8):  # no
         self.a = Signal(width)
         self.b = Signal(width)
         self.o = Signal(2*width)
@@ -25,12 +27,13 @@ class NaiveMul(Elaboratable):
 
 
 class NaiveMulSigned(Elaboratable):
+    """"""
     def __init__(self, width=8):
         self.a = Signal(signed(width))
         self.b = Signal(signed(width))
         self.o = Signal(signed(2*width))
 
-    def elaborate(self, platform):
+    def elaborate(self, platform):  # noqa: D102
         m = Module()
 
         m.d.comb += self.o.eq(self.a * self.b)
