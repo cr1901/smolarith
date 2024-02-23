@@ -11,11 +11,15 @@ module you want to use, perhaps with an alias, e.g.
 
 ```{eval-rst}
 .. automodule:: smolarith.mul
+    :exclude-members: PipelinedMul
+
+.. autoclass:: smolarith.mul.PipelinedMul
+    :exclude-members: elaborate
 ```
 
 ## Division
 
 ```{eval-rst}
 .. automodule:: smolarith.div
-  :exclude-members: MagnitudeComparator
+    :exclude-members: MagnitudeComparator
 ```

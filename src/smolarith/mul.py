@@ -36,7 +36,7 @@ class PipelinedMul(Elaboratable):
      
     This multiplier core has pipeline registers that stores intermediate
     results for up to ``width`` multiplies at once. Currently there is no
-    control flow to stall multiplies in flight.
+    control flow to stall multiplies in flight, so the output is always valid.
 
     .. todo::
 
@@ -53,32 +53,52 @@ class PipelinedMul(Elaboratable):
         Width in bits of both inputs ``a`` and ``b``. For signed
         multiplies, this includes the sign bit. Output ``o`` width will
         be :math:`2*n`.
-    debug : bool, optional
+    debug : int, optional
         Enable debugging signals.
 
     Attributes
     ----------
     width : int
-        See ``width`` parameter in :class:`PipelinedMul`.
-    a : :class:`Signal`
+        Bit with of the inputs ``a`` and ``b``. Output ``o`` width will
+        be :math:`2*n`.
+    a : ~amaranth.lib.hdl.Signal
         Shape :class:`~amaranth:amaranth.hdl.signed`, in. ``a`` input to
-        multiplier; i.e. the multiplicand in :math:`a * b`.
-    b : :class:`Signal`
+        multiplier; i.e. the multiplicand.
+    b : ~amaranth.lib.hdl.Signal
         Shape :class:`~amaranth:amaranth.hdl.signed`, in. ``b`` input to
-        multiplier; i.e. the multiplier in :math:`a * b`.
-    o : :class:`Signal`
+        multiplier; i.e. the multiplier.
+    o : ~amaranth.lib.hdl.Signal
         Shape :class:`~amaranth:amaranth.hdl.signed`, out. ``o`` output of
-        multiplier.
-    sign : :class:`Signal`
+        multiplier; i.e. the product.
+    sign : ~amaranth.lib.hdl.Signal
         Shape :class:`Sign`, in. Configure whether the multiplication which
         starts next clock cycle is unsigned, signed, or signed-unsigned.
-    sign_out : :class:`Signal`
+    sign_out : ~amaranth.lib.hdl.Signal
         Shape :class:`Sign`, out. Indicates whether the ``o`` output of the
         multiply which finished this clock cycle should be interpreted as
         unsigned, signed, or signed-unsigned.
     debug: bool
         Flag which indicates whether internal debugging :class:`Signal`\s are
         enabled or not.
+
+    Notes
+    -----
+    This multiplier is a naive shift-add implementation, similar to how
+    pen-and-pad multiplication in base-10 works.
+
+    For an :math:`n`-bit multiply, this multiplier requires :math:`O(n^2)`
+    storage elements (to store intermediate results).
+
+    Future Directions
+    -----------------
+
+    It is :ref:`possible <karatsuba>` to implement a :math:`2*n`-bit
+    multiply using 3 :math:`n`-bit multiplies. Since this library is about
+    *smol* arithmetic, it may be worthwhile to create classes for Karatsuba
+    multipliers.
+
+    Larger multpliers using a smaller :class:`PipelinedMul` will still
+    potentially be quite fast :).
     """  
 
     def __init__(self, width=16, debug=False):

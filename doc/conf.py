@@ -1,3 +1,4 @@
+# ruff: noqa: D100
 # Configuration file for the Sphinx documentation builder.
 #
 # For the full list of built-in configuration values, see the documentation:
@@ -32,10 +33,11 @@ templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'amaranth': ('https://amaranth-lang.org/docs/amaranth/v0.4.1/', None)}
+                       'amaranth': ('https://amaranth-lang.org/docs/amaranth/v0.4.1/', None)}  # noqa: E501
 autodoc_default_options = {"members": True,
                            "undoc-members": True}
 todo_include_todos = True
+napoleon_custom_sections = ["Future Directions"]
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
