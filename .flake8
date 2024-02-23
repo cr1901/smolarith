@@ -3,7 +3,7 @@ extend-exclude = .venv/
 # We only use flake8 for the pydoclint integration and checks that ruff doesn't
 # really support yet.
 ignore=F,E,W
-select=E261,DOC
+select=E261,E302,DOC
 style=numpy
 skip_checking_short_docstrings=False
 arg_type_hints_in_signature=False

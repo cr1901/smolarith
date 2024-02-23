@@ -31,35 +31,6 @@ class Sign(Enum):
     SIGNED_UNSIGNED = auto()
 
 
-class NaiveMul(Elaboratable):
-    def __init__(self, width=8):  # no
-        self.a = Signal(width)
-        self.b = Signal(width)
-        self.o = Signal(2*width)
-
-    def elaborate(self, platform):
-        m = Module()
-
-        m.d.comb += self.o.eq(self.a * self.b)
-
-        return m
-
-
-class NaiveMulSigned(Elaboratable):
-    """"""
-    def __init__(self, width=8):
-        self.a = Signal(signed(width))
-        self.b = Signal(signed(width))
-        self.o = Signal(signed(2*width))
-
-    def elaborate(self, platform):  # noqa: D102
-        m = Module()
-
-        m.d.comb += self.o.eq(self.a * self.b)
-
-        return m
-
-
 class PipelinedMul(Elaboratable):
     r"""Multiplier soft-core which pipelines inputs.
      
@@ -108,7 +79,6 @@ class PipelinedMul(Elaboratable):
     debug: bool
         Flag which indicates whether internal debugging :class:`Signal`\s are
         enabled or not.
-
     """  
 
     def __init__(self, width=16, debug=False):
@@ -165,7 +135,7 @@ class PipelinedMul(Elaboratable):
     #       z8z7z6z5z4z3z2z1z0: v6 = (z8z7z6z5z4z3z2z1z0*w6 << 6) + v5
     #   + z8z7z6z5z4z3z2z1z0: v7 = (z8z7z6z5z4z3z2z1z0*w7 << 7) + v6
 
-    def elaborate(self, platform):
+    def elaborate(self, platform):  # noqa: D102
         def probe_pipeline_stage(i):
             if i == 0:
                 stage_out = Signal.like(pipeline_out[0])
