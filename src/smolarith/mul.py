@@ -1,18 +1,37 @@
-from amaranth import Elaboratable, Module, Signal, signed, unsigned, Mux, Cat
+"""Soft-core multiplier components."""
+
+from amaranth import Elaboratable, Module, Signal, signed, unsigned, Mux, Cat  
 from amaranth.lib.data import ArrayLayout, StructLayout
 
 from amaranth.lib.enum import Enum, auto
 
 
 class Sign(Enum):
+    """Indicate the signedness of multiplier inputs.
+
+    * ``UNSIGNED``: Both inputs ``a`` and ``b`` are unsigned.
+      
+      The output is unsigned.
+
+    * ``SIGNED``: Both inputs ``a`` and ``b`` are unsigned.
+      
+      The output is signed.
+
+    * ``SIGNED_UNSIGNED``: Input ``a`` is signed and input ``b`` is unsigned.
+      
+      The output is signed.
+       
+      Note that for :math:`n`-bit multiply with given bit patterns for ``a``
+      and ``b``, the bottom :math:`n/2` bits will be identical in an
+      ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply,
+    """
+
     UNSIGNED = auto()
     SIGNED = auto()
     SIGNED_UNSIGNED = auto()
 
 
 class NaiveMul(Elaboratable):
-    """Return an iterator that yields values from each of the phases."""
-
     def __init__(self, width=8):  # no
         self.a = Signal(width)
         self.b = Signal(width)
@@ -42,6 +61,56 @@ class NaiveMulSigned(Elaboratable):
 
 
 class PipelinedMul(Elaboratable):
+    r"""Multiplier soft-core which pipelines inputs.
+     
+    This multiplier core has pipeline registers that stores intermediate
+    results for up to ``width`` multiplies at once. Currently there is no
+    control flow to stall multiplies in flight.
+
+    .. todo::
+
+        Add control flow, and update to Amaranth streams when available.
+    
+    * Latency: Multiply Results for a given multiply will be available
+      ``width`` clock cycles after the multiplier has seen those inputs.
+    
+    * Throughput: One multiply is finished per clock cycle.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of both inputs ``a`` and ``b``. For signed
+        multiplies, this includes the sign bit. Output ``o`` width will
+        be :math:`2*n`.
+    debug : bool, optional
+        Enable debugging signals.
+
+    Attributes
+    ----------
+    width : int
+        See ``width`` parameter in :class:`PipelinedMul`.
+    a : :class:`Signal`
+        Shape :class:`~amaranth:amaranth.hdl.signed`, in. ``a`` input to
+        multiplier; i.e. the multiplicand in :math:`a * b`.
+    b : :class:`Signal`
+        Shape :class:`~amaranth:amaranth.hdl.signed`, in. ``b`` input to
+        multiplier; i.e. the multiplier in :math:`a * b`.
+    o : :class:`Signal`
+        Shape :class:`~amaranth:amaranth.hdl.signed`, out. ``o`` output of
+        multiplier.
+    sign : :class:`Signal`
+        Shape :class:`Sign`, in. Configure whether the multiplication which
+        starts next clock cycle is unsigned, signed, or signed-unsigned.
+    sign_out : :class:`Signal`
+        Shape :class:`Sign`, out. Indicates whether the ``o`` output of the
+        multiply which finished this clock cycle should be interpreted as
+        unsigned, signed, or signed-unsigned.
+    debug: bool
+        Flag which indicates whether internal debugging :class:`Signal`\s are
+        enabled or not.
+
+    """  
+
     def __init__(self, width=16, debug=False):
         self.width = width
         self.a = Signal(signed(self.width))  # Multiplicand

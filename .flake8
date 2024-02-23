@@ -6,3 +6,4 @@ ignore=F,E,W
 select=E261,DOC
 style=numpy
 skip_checking_short_docstrings=False
+arg_type_hints_in_signature=False
