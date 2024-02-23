@@ -4,10 +4,10 @@ from amaranth import Elaboratable, Module, Signal, signed, unsigned, Mux, Cat
 from amaranth.lib.data import ArrayLayout, StructLayout, UnionLayout
 from amaranth.lib.wiring import Signature, In, Out, Component
 
-from amaranth.lib.enum import Enum, auto
+from amaranth.lib.enum import IntEnum, auto
 
 
-class Sign(Enum):
+class Sign(IntEnum):
     """Indicate the signedness of multiplier inputs.
 
     * ``UNSIGNED``: Both inputs ``a`` and ``b`` are unsigned.
@@ -78,17 +78,29 @@ class PipelinedMul(Component):
     r"""Multiplier soft-core which pipelines inputs.
      
     This multiplier core has pipeline registers that stores intermediate
-    results for up to ``width`` multiplies at once. Currently there is no
-    control flow to stall multiplies in flight, so the output is always valid.
+    results for up to ``width`` multiplies at once. Basic control flow is
+    implemented:
+     
+    * A multiply starts on the current cycle when both ``inp.valid`` and
+      ``inp.rdy`` are asserted.
+    * A multiply result is available when ``outp.valid`` is asserted. The
+      result is read/overwritten once a downstream core asserts ``outp.rdy``.
+    * ``inp.rdy`` de-asserts on any cycle where ``outp.valid`` is asserted
+      but ``outp.rdy`` is *not* asserted. This is a pipeline *stall*.
 
     .. todo::
 
-        Add control flow, and update to Amaranth streams when available.
+        Update to Amaranth streams when available.
     
     * Latency: Multiply Results for a given multiply will be available
-      ``width`` clock cycles after the multiplier has seen those inputs.
+      ``width`` clock cycles after the multiplier has seen those inputs,
+      assuming no stalls.
+       
+      If stalls occur (``outp.valid`` is asserted while ``outp.rdy`` is
+      unasserted), latency increases by the length of the stalls in clock
+      cycles while the given multiply was in the pipeline.
     
-    * Throughput: One multiply is finished per clock cycle.
+    * Throughput: One multiply maximum is finished per clock cycle.
 
     Parameters
     ----------
@@ -126,34 +138,49 @@ class PipelinedMul(Component):
 
     Notes
     -----
-    This multiplier is a naive shift-add implementation, similar to how
-    pen-and-pad multiplication in base-2/10 works. Internally, the multiplier
-    treats the multiplier ``a`` as signed and the multiplicand ``b`` as
-    unsigned.
+    * This multiplier is a naive shift-add implementation, similar to how
+      pen-and-pad multiplication in base-2/10 works. Internally, the multiplier
+      treats the multiplier ``a`` as signed and the multiplicand ``b`` as
+      unsigned.
      
-    ``a``'s signedness only matters for the most-negative value possible for a
-    given bit-width :math:`n`, where twos-complementing would not change the
-    bit-pattern. Therefore, `a` is
-    :ref:`automatically <amaranth:lang-widthext>` sign-extended to
-    :math:`n + 1` bits in the input stage before any further processing.
+      ``a``'s signedness only matters for the most-negative value possible for
+      a given bit-width :math:`n`, where twos-complementing would not change
+      the bit-pattern. Therefore, `a` is
+      :ref:`automatically <amaranth:lang-widthext>` sign-extended to
+      :math:`n + 1` bits in the input stage before any further processing.
      
-    If ``b`` is negative, both ``b`` and ``a`` are twos-complemented in the
-    input stage; since :math:`a * b = -a * -b`, no inverse transformation on
-    the output stage is needed.
+      If ``b`` is negative, both ``b`` and ``a`` are twos-complemented in the
+      input stage; since :math:`a * b = -a * -b`, no inverse transformation on
+      the output stage is needed.
 
-    For an :math:`n`-bit multiply, this multiplier requires :math:`O(n^2)`
-    storage elements (to store intermediate results).
+    * For an :math:`n`-bit multiply, this multiplier requires :math:`O(n^2)`
+      storage elements (to store intermediate results).
+
+    * The pipeline will happily perform multiplies on invalid inputs; the core
+      will *not* assert ``outp.valid`` when such multiplies reach the
+      output interface (and thus they will be discarded).
+
+    * For simplicity of implementation, and under the assumption that
+      stalls will be rare, a pipeline stall stops the entire core. The core
+      does not attempt to fill pipeline stages if the output interface isn't
+      ready.
 
     Future Directions
     -----------------
 
-    It is :ref:`possible <karatsuba>` to implement a :math:`2*n`-bit
-    multiply using 3 :math:`n`-bit multiplies. Since this library is about
-    *smol* arithmetic, it may be worthwhile to create classes for Karatsuba
-    multipliers.
+    * It is :ref:`possible <karatsuba>` to implement a :math:`2*n`-bit
+      multiply using 3 :math:`n`-bit multiplies. Since this library is about
+      *smol* arithmetic, it may be worthwhile to create classes for Karatsuba
+      multipliers.
 
-    Larger multpliers using a smaller :class:`PipelinedMul` will still
-    potentially be quite fast :).
+      Larger multpliers using a smaller :class:`PipelinedMul` will still
+      potentially be quite fast :).
+
+    * Stalls stop the entire pipeline because validity information is not
+      forwarded to earlier pipeline stages. Latency in the presence of stalls
+      could be reduced by quashing invalid multiplies at other points in the
+      pipeline besides the output. It is not much code complexity to
+      add this, but impact on timing and size is not clear.
     """  
 
     def __init__(self, width=16, debug=False):
@@ -249,7 +276,8 @@ class PipelinedMul(Component):
                 StructLayout({
                     "a": signed(self.inp.data.a.shape().size + 1),
                     "b": unsigned(self.inp.data.b.shape().size),
-                    "s": Sign
+                    "s": Sign,
+                    "v": unsigned(1)
                 }),
                 self.width
             )
@@ -281,69 +309,90 @@ class PipelinedMul(Component):
         pipeline_out = Signal(ArrayLayout(signed(self.width*2), self.width))
         probe_pipeline_stage(0)
 
-        m.d.sync += pipeline_in[0].s.eq(self.inp.data.sign)
+        # If the output isn't valid, we can accept another multiply. If
+        # the output _is_ valid, we can only accept accept another multiply
+        # if the output is being read this cycle.
+        m.d.comb += self.inp.rdy.eq(self.outp.valid.implies(self.outp.rdy))
+        m.d.sync += pipeline_in[0].v.eq(0)
 
-        # If the multiplier is negative, and both inputs are signed,
-        # we need to twos-complement the inputs. Since the inputs are otherwise
-        # unmodified, we only need do this in the input stage.
-        with m.If((self.inp.data.sign == Sign.SIGNED) & self.inp.data.b.i[-1]):
+        with m.If(self.inp.rdy & self.inp.valid):
             m.d.sync += [
-                # If multiplier is negative, then we need to _subtract_ the
-                # multiplicand from 0... which is the same as adding the twos
-                # complement! This also works if the multiplicand is negative!
-                pipeline_in[0].a.eq(-self.inp.data.a.i),
-                # In twos complement, each bit doesn't directly correspond to
-                # whether an add should be suppressed or not; the twos
-                # complement of the value does! This also works for the
-                # negative-most multiplier, since we don't care about
-                # signed-ness when querying each individual bit.
-                pipeline_in[0].b.eq(-self.inp.data.b.i)
+                pipeline_in[0].s.eq(self.inp.data.sign),
+                pipeline_in[0].v.eq(1)
             ]
-            m.d.sync += pipeline_out[0].eq(-self.inp.data.a.i *
-                                           (-self.inp.data.b.i)[0])
 
-        # If multiplier is positive, then pass through the multiplicand
-        # and multiplier unchanged- zero-extend if unsigned, sign-extend if
-        # negative.
-        # Aside from sign-extension (to accommodate the most-negative value of
-        # the multiplicand in the above branch), the multiplicand's signedness
-        # doesn't matter. From the multiplier's POV, either we're adding
-        # positive numbers or adding negative numbers together.
-        with m.Else():
-            # Quash sign-extension of "a" if unsigned multiply.
-            with m.If(self.inp.data.sign == Sign.UNSIGNED):
+            # If the multiplier is negative, and both inputs are signed,
+            # we need to twos-complement the inputs. Since the inputs are
+            # otherwise unmodified, we only need do this in the input stage.
+            with m.If((self.inp.data.sign == Sign.SIGNED) &
+                      self.inp.data.b.i[-1]):
                 m.d.sync += [
-                    pipeline_in[0].a.eq(self.inp.data.a.u),
-                    pipeline_in[0].b.eq(self.inp.data.b.u)
+                    # If multiplier is negative, then we need to _subtract_ the
+                    # multiplicand from 0... which is the same as adding the
+                    # twos complement! This also works if the multiplicand is
+                    # negative!
+                    pipeline_in[0].a.eq(-self.inp.data.a.i),
+                    # In twos complement, each bit doesn't directly correspond
+                    # to whether an add should be suppressed or not; the twos
+                    # complement of the value does! This also works for the
+                    # negative-most multiplier, since we don't care about
+                    # signed-ness when querying each individual bit.
+                    pipeline_in[0].b.eq(-self.inp.data.b.i)
                 ]
-                m.d.sync += pipeline_out[0].eq(self.inp.data.a.u *
-                                               self.inp.data.b.u[0])
+                m.d.sync += pipeline_out[0].eq(-self.inp.data.a.i *
+                                               (-self.inp.data.b.i)[0])
+
+            # If multiplier is positive, then pass through the multiplicand
+            # and multiplier unchanged- zero-extend if unsigned, sign-extend if
+            # negative.
+            # Aside from sign-extension (to accommodate the most-negative value
+            # of the multiplicand in the above branch), the multiplicand's
+            # signedness doesn't matter. From the multiplier's POV, either
+            # we're adding positive numbers or adding negative numbers
+            # together.
             with m.Else():
-                m.d.sync += [
-                    pipeline_in[0].a.eq(self.inp.data.a.i),
-                    pipeline_in[0].b.eq(self.inp.data.b.u)
-                ]
-                m.d.sync += pipeline_out[0].eq(self.inp.data.a.i *
-                                               self.inp.data.b.u[0])
+                # Quash sign-extension of "a" if unsigned multiply.
+                with m.If(self.inp.data.sign == Sign.UNSIGNED):
+                    m.d.sync += [
+                        pipeline_in[0].a.eq(self.inp.data.a.u),
+                        pipeline_in[0].b.eq(self.inp.data.b.u)
+                    ]
+                    m.d.sync += pipeline_out[0].eq(self.inp.data.a.u *
+                                                   self.inp.data.b.u[0])
+                with m.Else():
+                    m.d.sync += [
+                        pipeline_in[0].a.eq(self.inp.data.a.i),
+                        pipeline_in[0].b.eq(self.inp.data.b.u)
+                    ]
+                    m.d.sync += pipeline_out[0].eq(self.inp.data.a.i *
+                                                   self.inp.data.b.u[0])
 
         # With the above out of the way, the main multiplying stages should
         # be identical regardless of signedness (because adding shift copies
         # works the same regardless of sign). Only the interpretation of
-        # the bit patterns differ, depending on signedness.
+        # the bit patterns differ, depending on signedness.   
         for i in range(1, self.width):
             if self.debug:
                 probe_pipeline_stage(i)
 
-            m.d.sync += pipeline_in[i].eq(pipeline_in[i - 1])
-            # This relies on the optimizer realizing we're doing a mul by a
-            # 1 bit number (pipeline_in[i - 1].b[i]) with leading zeros.
-            m.d.sync += pipeline_out[i].eq(((pipeline_in[i - 1].a *
-                                             pipeline_in[i - 1].b[i]) << i) +
-                                           pipeline_out[i - 1])
+            with m.If(self.inp.rdy):
+                # This relies on the optimizer realizing we're doing a mul by a
+                # 1 bit number (pipeline_in[i - 1].b[i]) with leading zeros.
+                a = pipeline_in[i - 1].a
+                b = pipeline_in[i - 1].b[i]
+                acc = pipeline_out[i - 1]
+
+                # Don't gate calculation on valid signal, it'll be discarded
+                # anyway once we reach the end of the pipeline.
+                m.d.sync += [
+                    pipeline_in[i].eq(pipeline_in[i - 1]),
+                    pipeline_out[i].eq(((a * b) << i) + acc)
+                ]
 
         # Should be the same regardless of whether .u or .i is used. Choose
         # i for consistency with pipeline_out.
         m.d.comb += self.outp.data.o.i.eq(pipeline_out[self.width - 1])
         m.d.comb += self.outp.data.sign.eq(pipeline_in[self.width - 1].s)
+        m.d.comb += self.outp.valid.eq(pipeline_in[self.width - 1].v)
 
         return m

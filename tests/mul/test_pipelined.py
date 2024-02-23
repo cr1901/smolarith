@@ -20,6 +20,9 @@ def mk_pipelined_testbench(m, abs_iter):
         b_prev = None
         s_prev = None
 
+        yield m.inp.valid.eq(1)
+        yield m.outp.rdy.eq(1)
+
         for (a, b, s) in abs_iter:
             if s == Sign.UNSIGNED:
                 if a != a_prev:
@@ -107,6 +110,85 @@ def random_tb(sim_mod):
     return mk_pipelined_testbench(m, random_muls())
 
 
+@pytest.fixture
+def pipeline_tb(sim_mod):
+    def testbench():
+        _, m = sim_mod
+
+        yield m.inp.data.sign.eq(Sign.UNSIGNED)
+        yield m.inp.data.a.eq(1)
+        yield m.inp.data.b.eq(1)
+        yield m.inp.valid.eq(1)
+        yield m.outp.rdy.eq(1)
+        yield
+
+        yield m.inp.data.a.eq(2)
+        yield m.inp.data.b.eq(2)
+        yield
+
+        # Pipeline should continue working...
+        yield m.inp.valid.eq(0)
+        yield
+
+        yield m.inp.valid.eq(1)
+        yield m.inp.data.a.eq(3)
+        yield m.inp.data.b.eq(3)
+        yield
+
+        yield m.inp.data.a.eq(4)
+        yield m.inp.data.b.eq(4)
+        yield
+
+        yield m.inp.valid.eq(0)
+        for _ in range(3):
+            yield
+
+        yield m.outp.rdy.eq(0)
+        yield
+
+        yield m.outp.rdy.eq(1)
+        assert (yield m.outp.valid) == 1
+        assert (yield m.outp.data.sign) == Sign.UNSIGNED
+        assert (yield m.outp.data.o) == 1
+        # Pipeline should stall...
+        assert (yield m.inp.rdy) == 0
+        yield
+
+        assert (yield m.outp.valid) == 1
+        assert (yield m.outp.data.sign) == Sign.UNSIGNED
+        assert (yield m.outp.data.o) == 1
+        assert (yield m.inp.rdy) == 1
+        yield
+
+        assert (yield m.outp.valid) == 1
+        assert (yield m.outp.data.sign) == Sign.UNSIGNED
+        assert (yield m.outp.data.o) == 4
+        assert (yield m.inp.rdy) == 1
+        yield
+
+        assert (yield m.outp.valid) == 0
+        assert (yield m.inp.rdy) == 1
+        yield
+
+        assert (yield m.outp.valid) == 1
+        assert (yield m.outp.data.sign) == Sign.UNSIGNED
+        assert (yield m.outp.data.o) == 9
+        assert (yield m.inp.rdy) == 1
+        yield
+
+        assert (yield m.outp.valid) == 1
+        assert (yield m.outp.data.sign) == Sign.UNSIGNED
+        assert (yield m.outp.data.o) == 16
+        assert (yield m.inp.rdy) == 1
+        yield
+
+        assert (yield m.outp.valid) == 0
+        assert (yield m.inp.rdy) == 1
+        yield
+
+    return testbench
+
+
 @pytest.mark.module(PipelinedMul(8, debug=True))
 @pytest.mark.clks((1.0 / 12e6,))
 @pytest.mark.parametrize("all_values_tb", [Sign.UNSIGNED, Sign.SIGNED,
@@ -123,3 +205,10 @@ def test_random_32b(sim_mod, random_tb):
     sim, m = sim_mod
     random.seed(0)
     sim.run(sync_processes=[random_tb])
+
+
+@pytest.mark.module(PipelinedMul(8, debug=True))
+@pytest.mark.clks((1.0 / 12e6,))
+def test_pipeline_stall(sim_mod, pipeline_tb):
+    sim, m = sim_mod
+    sim.run(sync_processes=[pipeline_tb])
