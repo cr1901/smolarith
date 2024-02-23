@@ -28,12 +28,12 @@ markers = [
 
 [tool.ruff]
 src = [ "src", "tests" ]  # https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
-line-length = 80  # flake8 compat
-pycodestyle.max-line-length = 80  # flake8 compat
+line-length = 79  # flake8 compat
 # These will catch missing docstrings and other nits, which pydoclint doesn't.
 # Also, add stable-but-disabled checks
 lint.extend-select = ["E501", "D"]
 lint.pydocstyle.convention = "numpy"
+lint.pycodestyle.max-line-length = 79  # flake8 compat
 # I don't see the need to document tests like they're a public API.
 lint.per-file-ignores = { "tests/**/test_*.py" = ["D103", "D100"] }
 

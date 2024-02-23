@@ -19,7 +19,7 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.4.1"
+version = "0.4.2"
 requires_python = "~=3.8"
 summary = "Amaranth hardware definition language"
 dependencies = [
@@ -28,7 +28,7 @@ dependencies = [
     "pyvcd<0.5,>=0.2.2",
 ]
 files = [
-    {file = "amaranth-0.4.1-py3-none-any.whl", hash = "sha256:f7b9e85b74f0e6be0468cc1a02b89cfc583ee2d9cee882f6c17ec6d0b07381ec"},
+    {file = "amaranth-0.4.2-py3-none-any.whl", hash = "sha256:1f0a6c916830aab6010d75eb28ce52e5d3929d21446992999a73649705f2547d"},
 ]
 
 [[package]]

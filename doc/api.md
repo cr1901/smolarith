@@ -5,6 +5,7 @@ module you want to use, perhaps with an alias, e.g.
 
 ```{doctest}
 >>> import smolarith.mul as mul
+
 ```
 
 ## Multiplication

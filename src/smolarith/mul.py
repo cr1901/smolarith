@@ -1,7 +1,8 @@
 """Soft-core multiplier components."""
 
 from amaranth import Elaboratable, Module, Signal, signed, unsigned, Mux, Cat  
-from amaranth.lib.data import ArrayLayout, StructLayout
+from amaranth.lib.data import ArrayLayout, StructLayout, UnionLayout
+from amaranth.lib.wiring import Signature, In, Out, Component
 
 from amaranth.lib.enum import Enum, auto
 
@@ -23,7 +24,7 @@ class Sign(Enum):
        
       Note that for :math:`n`-bit multiply with given bit patterns for ``a``
       and ``b``, the bottom :math:`n/2` bits will be identical in an
-      ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply,
+      ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply.
     """
 
     UNSIGNED = auto()
@@ -31,7 +32,49 @@ class Sign(Enum):
     SIGNED_UNSIGNED = auto()
 
 
-class PipelinedMul(Elaboratable):
+class SignedOrUnsigned(UnionLayout):
+    def __init__(self, width):
+        super().__init__({
+            "u": unsigned(width),
+            "i": signed(width)
+        })
+
+
+class Inputs(StructLayout):
+    def __init__(self, width):
+        super().__init__({
+            "sign": Sign,
+            "a": SignedOrUnsigned(width),
+            "b": SignedOrUnsigned(width),
+        })
+
+
+class Outputs(StructLayout):
+    def __init__(self, width):
+        super().__init__({
+            "sign": Sign,
+            "o": SignedOrUnsigned(width),
+        })
+
+
+def multiplier_input_signature(width):
+    return Signature({
+        "data": Out(Inputs(width)),
+        "rdy": In(1),
+        "valid": Out(1)
+    })
+
+
+def multiplier_output_signature(width):
+    return Signature({
+        "data": Out(Outputs(width)),
+        "rdy": In(1),
+        "valid": Out(1)
+    })
+
+
+
+class PipelinedMul(Component):
     r"""Multiplier soft-core which pipelines inputs.
      
     This multiplier core has pipeline registers that stores intermediate
@@ -84,7 +127,19 @@ class PipelinedMul(Elaboratable):
     Notes
     -----
     This multiplier is a naive shift-add implementation, similar to how
-    pen-and-pad multiplication in base-10 works.
+    pen-and-pad multiplication in base-2/10 works. Internally, the multiplier
+    treats the multiplier ``a`` as signed and the multiplicand ``b`` as
+    unsigned.
+     
+    ``a``'s signedness only matters for the most-negative value possible for a
+    given bit-width :math:`n`, where twos-complementing would not change the
+    bit-pattern. Therefore, `a` is
+    :ref:`automatically <amaranth:lang-widthext>` sign-extended to
+    :math:`n + 1` bits in the input stage before any further processing.
+     
+    If ``b`` is negative, both ``b`` and ``a`` are twos-complemented in the
+    input stage; since :math:`a * b = -a * -b`, no inverse transformation on
+    the output stage is needed.
 
     For an :math:`n`-bit multiply, this multiplier requires :math:`O(n^2)`
     storage elements (to store intermediate results).
@@ -103,11 +158,10 @@ class PipelinedMul(Elaboratable):
 
     def __init__(self, width=16, debug=False):
         self.width = width
-        self.a = Signal(signed(self.width))  # Multiplicand
-        self.b = Signal(signed(self.width))  # Multiplier
-        self.o = Signal(signed(2*self.width))
-        self.sign = Signal(Sign, reset=Sign.UNSIGNED)
-        self.sign_out = Signal(Sign, reset=Sign.UNSIGNED)
+        super().__init__({
+            "inp": In(multiplier_input_signature(self.width)),
+            "outp": Out(multiplier_output_signature(2*self.width))
+        })
         self.debug = debug
 
     #   Unsigned, signed-unsigned case. The actual formula is the same
@@ -190,13 +244,16 @@ class PipelinedMul(Elaboratable):
         #
         # This allows the twos complement conversion of "a" (done when "b" is
         # negative) be treated as positive for all possible values of "a".
-        pipeline_in = Signal(ArrayLayout(
-                                         StructLayout(members={
-                                            "a": signed(self.a.width + 1),
-                                            "b": unsigned(self.b.width),
-                                            "s": Sign
-                                         }),
-                                         self.width))
+        pipeline_in = Signal(
+            ArrayLayout(
+                StructLayout({
+                    "a": signed(self.inp.data.a.shape().size + 1),
+                    "b": unsigned(self.inp.data.b.shape().size),
+                    "s": Sign
+                }),
+                self.width
+            )
+        )
 
         # FIXME: Does not work as intended. It is ignored.
         # for i in range(self.width):
@@ -224,25 +281,26 @@ class PipelinedMul(Elaboratable):
         pipeline_out = Signal(ArrayLayout(signed(self.width*2), self.width))
         probe_pipeline_stage(0)
 
-        m.d.sync += pipeline_in[0].s.eq(self.sign)
+        m.d.sync += pipeline_in[0].s.eq(self.inp.data.sign)
 
         # If the multiplier is negative, and both inputs are signed,
         # we need to twos-complement the inputs. Since the inputs are otherwise
         # unmodified, we only need do this in the input stage.
-        with m.If((self.sign == Sign.SIGNED) & self.b[-1]):
+        with m.If((self.inp.data.sign == Sign.SIGNED) & self.inp.data.b.i[-1]):
             m.d.sync += [
                 # If multiplier is negative, then we need to _subtract_ the
                 # multiplicand from 0... which is the same as adding the twos
                 # complement! This also works if the multiplicand is negative!
-                pipeline_in[0].a.eq(-self.a),
+                pipeline_in[0].a.eq(-self.inp.data.a.i),
                 # In twos complement, each bit doesn't directly correspond to
                 # whether an add should be suppressed or not; the twos
                 # complement of the value does! This also works for the
                 # negative-most multiplier, since we don't care about
                 # signed-ness when querying each individual bit.
-                pipeline_in[0].b.eq(-self.b)
+                pipeline_in[0].b.eq(-self.inp.data.b.i)
             ]
-            m.d.sync += pipeline_out[0].eq(-self.a * (-self.b)[0])
+            m.d.sync += pipeline_out[0].eq(-self.inp.data.a.i *
+                                           (-self.inp.data.b.i)[0])
 
         # If multiplier is positive, then pass through the multiplicand
         # and multiplier unchanged- zero-extend if unsigned, sign-extend if
@@ -253,15 +311,20 @@ class PipelinedMul(Elaboratable):
         # positive numbers or adding negative numbers together.
         with m.Else():
             # Quash sign-extension of "a" if unsigned multiply.
-            maybe_sign_extended_a = Mux(self.sign == Sign.UNSIGNED,
-                                        Cat(self.a, 0), self.a)
-            m.d.sync += [
-                # If multiplier is positive, then pass through the multiplicand
-                # and multiplier unchanged.
-                pipeline_in[0].a.eq(maybe_sign_extended_a),
-                pipeline_in[0].b.eq(self.b)
-            ]
-            m.d.sync += pipeline_out[0].eq(maybe_sign_extended_a * self.b[0])
+            with m.If(self.inp.data.sign == Sign.UNSIGNED):
+                m.d.sync += [
+                    pipeline_in[0].a.eq(self.inp.data.a.u),
+                    pipeline_in[0].b.eq(self.inp.data.b.u)
+                ]
+                m.d.sync += pipeline_out[0].eq(self.inp.data.a.u *
+                                               self.inp.data.b.u[0])
+            with m.Else():
+                m.d.sync += [
+                    pipeline_in[0].a.eq(self.inp.data.a.i),
+                    pipeline_in[0].b.eq(self.inp.data.b.u)
+                ]
+                m.d.sync += pipeline_out[0].eq(self.inp.data.a.i *
+                                               self.inp.data.b.u[0])
 
         # With the above out of the way, the main multiplying stages should
         # be identical regardless of signedness (because adding shift copies
@@ -278,7 +341,9 @@ class PipelinedMul(Elaboratable):
                                              pipeline_in[i - 1].b[i]) << i) +
                                            pipeline_out[i - 1])
 
-        m.d.comb += self.o.eq(pipeline_out[self.width - 1])
-        m.d.comb += self.sign_out.eq(pipeline_in[self.width - 1].s)
+        # Should be the same regardless of whether .u or .i is used. Choose
+        # i for consistency with pipeline_out.
+        m.d.comb += self.outp.data.o.i.eq(pipeline_out[self.width - 1])
+        m.d.comb += self.outp.data.sign.eq(pipeline_in[self.width - 1].s)
 
         return m

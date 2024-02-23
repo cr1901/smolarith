@@ -23,27 +23,27 @@ def mk_pipelined_testbench(m, abs_iter):
         for (a, b, s) in abs_iter:
             if s == Sign.UNSIGNED:
                 if a != a_prev:
-                    yield m.a.as_unsigned().eq(a)
+                    yield m.inp.data.a.u.eq(a)
                 if b != b_prev:
-                    yield m.b.as_unsigned().eq(b)
+                    yield m.inp.data.b.u.eq(b)
             else:
                 if a != a_prev:
-                    yield m.a.eq(a)
+                    yield m.inp.data.a.i.eq(a)
                 if b != b_prev:
-                    yield m.b.eq(b)
+                    yield m.inp.data.b.i.eq(b)
 
             if s != s_prev:
-                yield m.sign.eq(s)
+                yield m.inp.data.sign.eq(s)
             yield
             (a_prev, b_prev, s_prev) = (a, b, s)
 
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            if (yield m.sign_out) == Sign.UNSIGNED.value:
-                assert a_c*b_c == (yield m.o.as_unsigned())
+            if (yield m.outp.data.sign) == Sign.UNSIGNED.value:
+                assert a_c*b_c == (yield m.outp.data.o.u)
             else:
-                assert a_c*b_c == (yield m.o)
+                assert a_c*b_c == (yield m.outp.data.o.i)
 
             # print((a, b), (a_c, b_c), a_c*b_c, (yield m.o))
             # for i in range(8):
@@ -57,10 +57,10 @@ def mk_pipelined_testbench(m, abs_iter):
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            if (yield m.sign_out) == Sign.UNSIGNED.value:
-                assert a_c*b_c == (yield m.o.as_unsigned())
+            if (yield m.outp.data.sign) == Sign.UNSIGNED.value:
+                assert a_c*b_c == (yield m.outp.data.o.u)
             else:
-                assert a_c*b_c == (yield m.o)
+                assert a_c*b_c == (yield m.outp.data.o.i)
 
     return testbench
 
