@@ -54,7 +54,7 @@ lint = [
 ]
 
 [tool.pdm.scripts]
-test = { composite = ["pytest", "doc-test"] }
+test = "pytest"
 lint = { composite = ["ruff check", "flake8", "doc-test"] }
 doc = "sphinx-build doc/ doc/_build/"
 # FIXME: pytest-sphinx doesn't catch all of these. Remove when it does.

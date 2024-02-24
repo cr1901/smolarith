@@ -1,14 +1,14 @@
 """Soft-core multiplier components."""
 
 from amaranth import Module, Signal, signed, unsigned
-from amaranth.lib.data import ArrayLayout, StructLayout, UnionLayout
+from amaranth.lib.data import ArrayLayout, StructLayout
 from amaranth.lib.wiring import Signature, In, Out, Component
 
 from amaranth.lib.enum import IntEnum, auto
 
 
 class Sign(IntEnum):
-    """Indicate the signedness of multiplier inputs.
+    """Indicate the type of multiply to be performed.
 
     * ``UNSIGNED``: Both inputs ``a`` and ``b`` are unsigned.
       
@@ -32,53 +32,19 @@ class Sign(IntEnum):
     SIGNED_UNSIGNED = auto()
 
 
-class SignedOrUnsigned(UnionLayout):
-    """:class:`~amaranth:amaranth.lib.data.UnionLayout` to accomodate signed
-    or unsigned data.
-
-    :class:`SignedOrUnsigned` parametrically represents a
-    :class:`~amaranth:amaranth.hdl.ast.Signal` whose bit pattern should be
-    interpreted as :data:`~amaranth:amaranth.hdl.signed` or
-    :data:`~amaranth:amaranth.hdl.unsigned`. It is meant to be used with
-    the `Sign` enum to form a
-    `tagged union <https://en.wikipedia.org/wiki/Tagged_union>`_.
-
-    Parameters
-    ----------
-    width : int
-        Width in bits of both inputs ``a`` and ``b``. For signed
-        multiplies, this includes the sign bit.
-
-    Attributes
-    ----------
-    i: ~amaranth:amaranth.hdl.ast.Signal
-        The underlying signal interpreted as
-        :data:`~amaranth:amaranth.hdl.signed`.
-    u: ~amaranth:amaranth.hdl.ast.Signal
-        The underlying signal interpreted as
-        :data:`~amaranth:amaranth.hdl.unsigned`.
-    """  # noqa: D205
-
-    def __init__(self, width):
-        super().__init__({
-            "u": unsigned(width),
-            "i": signed(width)
-        })
-
-
 class Inputs(StructLayout):
-    """Tagged union representing the signedness of multiplier inputs.
+    r"""Tagged union representing the signedness of multiplier inputs.
     
-    * When :attr:`sign` is ``UNSIGNED``, both :attr:`a` and :attr:`b` should be
-      accessed through their :attr:`~SignedOrUnsigned.u` attributes.
+    * When :attr:`sign` is ``UNSIGNED``, both :attr:`a` and :attr:`b` are
+      treated by the multiplier as :class:`~amaranth:amaranth.hdl.Value`\ s
+      with an :data:`~amaranth:amaranth.hdl.unsigned`
+      :class:`~amaranth:amaranth.hdl.Shape`.
 
-    * When :attr:`sign` is ``SIGNED``, both :attr:`a` and :attr:`b` should be
-      accessed through their :attr:`~SignedOrUnsigned.i` attributes.
+    * When ``sign`` is ``SIGNED``, both ``a`` and ``b`` are treated as Values
+      with a :data:`~amaranth:amaranth.hdl.signed` Shape.
 
-    * When :attr:`sign` is ``SIGNED_UNSIGNED``, :attr:`a` should be
-      accessed through its :attr:`~SignedOrUnsigned.i` attribute, while
-      :attr:`b` should be accessed through its :attr:`~SignedOrUnsigned.u`
-      attribute.
+    * When ``sign`` is ``SIGNED_UNSIGNED``, ``a`` is treated as a Value with a
+      signed Shape, while ``b`` is treated as a Value with an unsigned Shape.
 
     Parameters
     ----------
@@ -91,28 +57,31 @@ class Inputs(StructLayout):
     sign: Sign
         Controls the interpretation of the bit patterns of :attr:`a` and
         :attr:`b` during multiplication.
-    a: SignedOrUnsigned
+    a: Signal(width)
         The multiplicand; i.e. the ':math:`a`' in :math:`a * b`.
-    b: SignedOrUnsigned
+    b: Signal(width)
         The multiplier; i.e. the ':math:`b`' in :math:`a * b`.
     """
 
     def __init__(self, width):
         super().__init__({
             "sign": Sign,
-            "a": SignedOrUnsigned(width),
-            "b": SignedOrUnsigned(width),
+            "a": unsigned(width),
+            "b": unsigned(width),
         })
 
 
 class Outputs(StructLayout):
     """Tagged union representing the signedness of multiplier output.
     
-    * When :attr:`sign` is ``UNSIGNED``, :attr:`o`` should be accessed through
-      its :attr:`~SignedOrUnsigned.u` attribute.
+    * When :attr:`sign` is ``UNSIGNED``, :attr:`o` should be treated as a
+      :class:`~amaranth:amaranth.hdl.Value` with an
+      :class:`~amaranth:amaranth.hdl.as_unsigned`
+      :class:`~amaranth:amaranth.hdl.Shape`.
 
-    * When :attr:`sign` is ``SIGNED`` or ``SIGNED_UNSIGNED``, :attr:`o`` should
-      be accessed through  its :attr:`~SignedOrUnsigned.i` attribute.
+    * When :attr:`sign` is ``SIGNED`` or ``SIGNED_UNSIGNED``, :attr:`o` should
+      be treated as a Value with a :class:`~amaranth:amaranth.hdl.as_signed`
+      Shape.
 
     Parameters
     ----------
@@ -125,14 +94,14 @@ class Outputs(StructLayout):
     sign: Sign
         Indicates whether the multiply that produced this product was signed,
         unsigned, or signed-unsigned.
-    o: SignedOrUnsigned
+    o: Signal(width)
         The product of :math:`a * b`.
     """
 
     def __init__(self, width):
         super().__init__({
             "sign": Sign,
-            "o": SignedOrUnsigned(width),
+            "o": unsigned(width),
         })
 
 
@@ -156,27 +125,22 @@ def multiplier_input_signature(width):
         following attributes:
 
         .. attribute:: .data
-            :type: Inputs
+            :type: Out(Inputs)
             :noindex:
 
-            Flow :data:`~amaranth:amaranth.lib.wiring.Out`. Data input to
-            multiplier.
+            Data input to multiplier.
 
         .. attribute:: .rdy
-            :type: Signal
+            :type: In(1)
             :noindex:
 
-            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
-            :data:`~amaranth:amaranth.lib.wiring.In`. When ``1``, indicates
-            that multiplier is ready.
+            When ``1``, indicates that multiplier is ready.
 
         .. attribute:: .valid
-            :type: Signal
+            :type: In(1)
             :noindex:
 
-            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
-            :data:`~amaranth:amaranth.lib.wiring.Out`. When ``1``, indicates
-            that multiplier data input is valid.
+            When ``1``, indicates that multiplier data input is valid.
     """
     return Signature({
         "data": Out(Inputs(width)),
@@ -217,27 +181,23 @@ def multiplier_output_signature(width):
         following attributes:
 
         .. attribute:: .data
-            :type: Outputs
+            :type: Out(Outputs)
             :noindex:
 
-            Flow :data:`~amaranth:amaranth.lib.wiring.Out`. Data output
-            **from** multiplier.
+            Data output **from** multiplier.
 
         .. attribute:: .rdy
-            :type: Signal
+            :type: In(1)
             :noindex:
 
-            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
-            :data:`~amaranth:amaranth.lib.wiring.In`. When ``1``, indicates
-            that receiver of multiplier results is ready.
+            When ``1``, indicates that responder is ready to receive results
+            from multiplier.
 
         .. attribute:: .valid
-            :type: Signal
+            :type: Out(1)
             :noindex:
 
-            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
-            :data:`~amaranth:amaranth.lib.wiring.Out`. When ``1``, indicates
-            that multiplier output data input is valid.
+            When ``1``, indicates that multiplier output data input is valid.
     """
     return Signature({
         "data": Out(Outputs(width)),
@@ -289,12 +249,10 @@ class PipelinedMul(Component):
     width : int
         Bit with of the inputs ``a`` and ``b``. Output ``o`` width will
         be :math:`2*n`.
-    inp : ~amaranth:amaranth.lib.wiring.Member
-        Input interface to the multiplier. See
-        :func:`multiplier_input_signature`.
-    outp : ~amaranth:amaranth.lib.wiring.Member
-        Output interface of the multiplier. See
-        :func:`multiplier_output_signature`.
+    inp : In(multiplier_input_signature(width))
+        Input interface to the multiplier.
+    outp : Out(multiplier_output_signature(width))
+        Output interface of the multiplier.
     debug: bool
         Flag which indicates whether internal debugging :class:`Signal`\s are
         enabled or not.
@@ -319,9 +277,10 @@ class PipelinedMul(Component):
     * For an :math:`n`-bit multiply, this multiplier requires :math:`O(n^2)`
       storage elements (to store intermediate results).
 
-    * The pipeline will happily perform multiplies on invalid inputs; the core
-      will *not* assert ``outp.valid`` when such multiplies reach the
-      output interface (and thus they will be discarded).
+    * The pipeline will happily perform multiplies on inputs where
+      ``inp.valid`` is not asserted; the core will *not* assert ``outp.valid``
+      when such multiplies reach the output interface (and thus they will be
+      discarded).
 
     * For simplicity of implementation, and under the assumption that
       stalls will be rare, a pipeline stall stops the entire core. The core
@@ -437,8 +396,8 @@ class PipelinedMul(Component):
         pipeline_in = Signal(
             ArrayLayout(
                 StructLayout({
-                    "a": signed(self.inp.data.a.shape().size + 1),
-                    "b": unsigned(self.inp.data.b.shape().size),
+                    "a": signed(self.inp.data.a.shape().width + 1),
+                    "b": unsigned(self.inp.data.b.shape().width),
                     "s": Sign,
                     "v": unsigned(1)
                 }),
@@ -488,22 +447,22 @@ class PipelinedMul(Component):
             # we need to twos-complement the inputs. Since the inputs are
             # otherwise unmodified, we only need do this in the input stage.
             with m.If((self.inp.data.sign == Sign.SIGNED) &
-                      self.inp.data.b.i[-1]):
+                      self.inp.data.b.as_signed()[-1]):
                 m.d.sync += [
                     # If multiplier is negative, then we need to _subtract_ the
                     # multiplicand from 0... which is the same as adding the
                     # twos complement! This also works if the multiplicand is
                     # negative!
-                    pipeline_in[0].a.eq(-self.inp.data.a.i),
+                    pipeline_in[0].a.eq(-self.inp.data.a.as_signed()),
                     # In twos complement, each bit doesn't directly correspond
                     # to whether an add should be suppressed or not; the twos
                     # complement of the value does! This also works for the
                     # negative-most multiplier, since we don't care about
                     # signed-ness when querying each individual bit.
-                    pipeline_in[0].b.eq(-self.inp.data.b.i)
+                    pipeline_in[0].b.eq(-self.inp.data.b.as_signed())
                 ]
-                m.d.sync += pipeline_out[0].eq(-self.inp.data.a.i *
-                                               (-self.inp.data.b.i)[0])
+                m.d.sync += pipeline_out[0].eq(-self.inp.data.a.as_signed() *
+                                               (-self.inp.data.b.as_signed())[0])
 
             # If multiplier is positive, then pass through the multiplicand
             # and multiplier unchanged- zero-extend if unsigned, sign-extend if
@@ -517,18 +476,18 @@ class PipelinedMul(Component):
                 # Quash sign-extension of "a" if unsigned multiply.
                 with m.If(self.inp.data.sign == Sign.UNSIGNED):
                     m.d.sync += [
-                        pipeline_in[0].a.eq(self.inp.data.a.u),
-                        pipeline_in[0].b.eq(self.inp.data.b.u)
+                        pipeline_in[0].a.eq(self.inp.data.a),
+                        pipeline_in[0].b.eq(self.inp.data.b)
                     ]
-                    m.d.sync += pipeline_out[0].eq(self.inp.data.a.u *
-                                                   self.inp.data.b.u[0])
+                    m.d.sync += pipeline_out[0].eq(self.inp.data.a *
+                                                   self.inp.data.b[0])
                 with m.Else():
                     m.d.sync += [
-                        pipeline_in[0].a.eq(self.inp.data.a.i),
-                        pipeline_in[0].b.eq(self.inp.data.b.u)
+                        pipeline_in[0].a.eq(self.inp.data.a.as_signed()),
+                        pipeline_in[0].b.eq(self.inp.data.b)
                     ]
-                    m.d.sync += pipeline_out[0].eq(self.inp.data.a.i *
-                                                   self.inp.data.b.u[0])
+                    m.d.sync += pipeline_out[0].eq(self.inp.data.a.as_signed() *  # noqa: E501
+                                                   self.inp.data.b[0])
 
         # With the above out of the way, the main multiplying stages should
         # be identical regardless of signedness (because adding shift copies
@@ -552,9 +511,7 @@ class PipelinedMul(Component):
                     pipeline_out[i].eq(((a * b) << i) + acc)
                 ]
 
-        # Should be the same regardless of whether .u or .i is used. Choose
-        # i for consistency with pipeline_out.
-        m.d.comb += self.outp.data.o.i.eq(pipeline_out[self.width - 1])
+        m.d.comb += self.outp.data.o.eq(pipeline_out[self.width - 1])
         m.d.comb += self.outp.data.sign.eq(pipeline_in[self.width - 1].s)
         m.d.comb += self.outp.valid.eq(pipeline_in[self.width - 1].v)
 
