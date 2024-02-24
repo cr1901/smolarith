@@ -7,3 +7,4 @@ select=E261,E302,E11,E12,E131,DOC
 style=numpy
 skip_checking_short_docstrings=False
 arg_type_hints_in_signature=False
+check-return-types=False

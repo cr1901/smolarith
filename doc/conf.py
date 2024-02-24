@@ -33,7 +33,7 @@ templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'amaranth': ('https://amaranth-lang.org/docs/amaranth/v0.4.1/', None)}  # noqa: E501
+                       'amaranth': ('https://amaranth-lang.org/docs/amaranth/v0.4.2/', None)}  # noqa: E501
 autodoc_default_options = {"members": True,
                            "undoc-members": True}
 todo_include_todos = True

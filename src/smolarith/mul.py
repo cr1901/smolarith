@@ -1,6 +1,6 @@
 """Soft-core multiplier components."""
 
-from amaranth import Elaboratable, Module, Signal, signed, unsigned, Mux, Cat  
+from amaranth import Module, Signal, signed, unsigned
 from amaranth.lib.data import ArrayLayout, StructLayout, UnionLayout
 from amaranth.lib.wiring import Signature, In, Out, Component
 
@@ -33,6 +33,32 @@ class Sign(IntEnum):
 
 
 class SignedOrUnsigned(UnionLayout):
+    """:class:`~amaranth:amaranth.lib.data.UnionLayout` to accomodate signed
+    or unsigned data.
+
+    :class:`SignedOrUnsigned` parametrically represents a
+    :class:`~amaranth:amaranth.hdl.ast.Signal` whose bit pattern should be
+    interpreted as :data:`~amaranth:amaranth.hdl.signed` or
+    :data:`~amaranth:amaranth.hdl.unsigned`. It is meant to be used with
+    the `Sign` enum to form a
+    `tagged union <https://en.wikipedia.org/wiki/Tagged_union>`_.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of both inputs ``a`` and ``b``. For signed
+        multiplies, this includes the sign bit.
+
+    Attributes
+    ----------
+    i: ~amaranth:amaranth.hdl.ast.Signal
+        The underlying signal interpreted as
+        :data:`~amaranth:amaranth.hdl.signed`.
+    u: ~amaranth:amaranth.hdl.ast.Signal
+        The underlying signal interpreted as
+        :data:`~amaranth:amaranth.hdl.unsigned`.
+    """  # noqa: D205
+
     def __init__(self, width):
         super().__init__({
             "u": unsigned(width),
@@ -41,6 +67,36 @@ class SignedOrUnsigned(UnionLayout):
 
 
 class Inputs(StructLayout):
+    """Tagged union representing the signedness of multiplier inputs.
+    
+    * When :attr:`sign` is ``UNSIGNED``, both :attr:`a` and :attr:`b` should be
+      accessed through their :attr:`~SignedOrUnsigned.u` attributes.
+
+    * When :attr:`sign` is ``SIGNED``, both :attr:`a` and :attr:`b` should be
+      accessed through their :attr:`~SignedOrUnsigned.i` attributes.
+
+    * When :attr:`sign` is ``SIGNED_UNSIGNED``, :attr:`a` should be
+      accessed through its :attr:`~SignedOrUnsigned.i` attribute, while
+      :attr:`b` should be accessed through its :attr:`~SignedOrUnsigned.u`
+      attribute.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of both inputs :attr:`a` and :attr:`b`. For signed
+        multiplies, this includes the sign bit.
+
+    Attributes
+    ----------
+    sign: Sign
+        Controls the interpretation of the bit patterns of :attr:`a` and
+        :attr:`b` during multiplication.
+    a: SignedOrUnsigned
+        The multiplicand; i.e. the ':math:`a`' in :math:`a * b`.
+    b: SignedOrUnsigned
+        The multiplier; i.e. the ':math:`b`' in :math:`a * b`.
+    """
+
     def __init__(self, width):
         super().__init__({
             "sign": Sign,
@@ -50,6 +106,29 @@ class Inputs(StructLayout):
 
 
 class Outputs(StructLayout):
+    """Tagged union representing the signedness of multiplier output.
+    
+    * When :attr:`sign` is ``UNSIGNED``, :attr:`o`` should be accessed through
+      its :attr:`~SignedOrUnsigned.u` attribute.
+
+    * When :attr:`sign` is ``SIGNED`` or ``SIGNED_UNSIGNED``, :attr:`o`` should
+      be accessed through  its :attr:`~SignedOrUnsigned.i` attribute.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of the output :attr:`o`. For signed multiplies, this
+        includes the sign bit.
+
+    Attributes
+    ----------
+    sign: Sign
+        Indicates whether the multiply that produced this product was signed,
+        unsigned, or signed-unsigned.
+    o: SignedOrUnsigned
+        The product of :math:`a * b`.
+    """
+
     def __init__(self, width):
         super().__init__({
             "sign": Sign,
@@ -58,6 +137,47 @@ class Outputs(StructLayout):
 
 
 def multiplier_input_signature(width):
+    """Create a parametric multiplier input port.
+
+    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    that's usable as a transfer initiator to a multiplier. A multiply starts
+    on the current cycle when both ``valid`` and ``rdy`` are asserted.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of the output :attr:`o`. For signed
+        multiplies, this includes the sign bit.
+
+    Returns
+    -------
+    :class:`~amaranth:amaranth.lib.wiring.Signature`
+        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
+        following attributes:
+
+        .. attribute:: .data
+            :type: Inputs
+            :noindex:
+
+            Flow :data:`~amaranth:amaranth.lib.wiring.Out`. Data input to
+            multiplier.
+
+        .. attribute:: .rdy
+            :type: Signal
+            :noindex:
+
+            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
+            :data:`~amaranth:amaranth.lib.wiring.In`. When ``1``, indicates
+            that multiplier is ready.
+
+        .. attribute:: .valid
+            :type: Signal
+            :noindex:
+
+            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
+            :data:`~amaranth:amaranth.lib.wiring.Out`. When ``1``, indicates
+            that multiplier data input is valid.
+    """
     return Signature({
         "data": Out(Inputs(width)),
         "rdy": In(1),
@@ -66,6 +186,59 @@ def multiplier_input_signature(width):
 
 
 def multiplier_output_signature(width):
+    """Create a parametric multiplier output port.
+
+    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    that's usable as a transfer initiator **from** a multiplier.
+
+    .. note:: For a core responding **to** a multiplier, which is the typical
+              use case, you will want to use this
+              :class:`~amaranth:amaranth.lib.wiring.Signature` with the
+              :data:`~amaranth:amaranth.lib.wiring.In` flow, like so:
+
+              .. doctest::
+
+                  >>> from smolarith.mul import multiplier_output_signature
+                  >>> from amaranth.lib.wiring import Signature, In
+                  >>> my_receiver_sig = Signature({
+                  ...     "inp": In(multiplier_output_signature(width=8))
+                  ... })
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of output ``o``. For signed multiplies, this includes the
+        sign bit.
+
+    Returns
+    -------
+    :class:`~amaranth:amaranth.lib.wiring.Signature`
+        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
+        following attributes:
+
+        .. attribute:: .data
+            :type: Outputs
+            :noindex:
+
+            Flow :data:`~amaranth:amaranth.lib.wiring.Out`. Data output
+            **from** multiplier.
+
+        .. attribute:: .rdy
+            :type: Signal
+            :noindex:
+
+            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
+            :data:`~amaranth:amaranth.lib.wiring.In`. When ``1``, indicates
+            that receiver of multiplier results is ready.
+
+        .. attribute:: .valid
+            :type: Signal
+            :noindex:
+
+            Shape :data:`~amaranth:amaranth.hdl.unsigned`, flow
+            :data:`~amaranth:amaranth.lib.wiring.Out`. When ``1``, indicates
+            that multiplier output data input is valid.
+    """
     return Signature({
         "data": Out(Outputs(width)),
         "rdy": In(1),
@@ -116,22 +289,12 @@ class PipelinedMul(Component):
     width : int
         Bit with of the inputs ``a`` and ``b``. Output ``o`` width will
         be :math:`2*n`.
-    a : ~amaranth.lib.hdl.Signal
-        Shape :class:`~amaranth:amaranth.hdl.signed`, in. ``a`` input to
-        multiplier; i.e. the multiplicand.
-    b : ~amaranth.lib.hdl.Signal
-        Shape :class:`~amaranth:amaranth.hdl.signed`, in. ``b`` input to
-        multiplier; i.e. the multiplier.
-    o : ~amaranth.lib.hdl.Signal
-        Shape :class:`~amaranth:amaranth.hdl.signed`, out. ``o`` output of
-        multiplier; i.e. the product.
-    sign : ~amaranth.lib.hdl.Signal
-        Shape :class:`Sign`, in. Configure whether the multiplication which
-        starts next clock cycle is unsigned, signed, or signed-unsigned.
-    sign_out : ~amaranth.lib.hdl.Signal
-        Shape :class:`Sign`, out. Indicates whether the ``o`` output of the
-        multiply which finished this clock cycle should be interpreted as
-        unsigned, signed, or signed-unsigned.
+    inp : ~amaranth:amaranth.lib.wiring.Member
+        Input interface to the multiplier. See
+        :func:`multiplier_input_signature`.
+    outp : ~amaranth:amaranth.lib.wiring.Member
+        Output interface of the multiplier. See
+        :func:`multiplier_output_signature`.
     debug: bool
         Flag which indicates whether internal debugging :class:`Signal`\s are
         enabled or not.
