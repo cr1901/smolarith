@@ -1,7 +1,7 @@
 """Soft-core multiplier components."""
 
 from amaranth import Module, Signal, signed, unsigned
-from amaranth.lib.data import ArrayLayout, StructLayout
+from amaranth.lib.data import ArrayLayout, StructLayout, UnionLayout
 from amaranth.lib.wiring import Signature, In, Out, Component
 
 from amaranth.lib.enum import IntEnum, auto
@@ -266,7 +266,7 @@ class PipelinedMul(Component):
      
       ``a``'s signedness only matters for the most-negative value possible for
       a given bit-width :math:`n`, where twos-complementing would not change
-      the bit-pattern. Therefore, `a` is
+      the bit-pattern. Therefore, ``a`` is
       :ref:`automatically <amaranth:lang-widthext>` sign-extended to
       :math:`n + 1` bits in the input stage before any further processing.
      
@@ -514,5 +514,109 @@ class PipelinedMul(Component):
         m.d.comb += self.outp.data.o.eq(pipeline_out[self.width - 1])
         m.d.comb += self.outp.data.sign.eq(pipeline_in[self.width - 1].s)
         m.d.comb += self.outp.valid.eq(pipeline_in[self.width - 1].v)
+
+        return m
+
+
+class MulticycleMul(Component):
+    def __init__(self, width=16, debug=False):
+        self.width = width
+        super().__init__({
+            "inp": In(multiplier_input_signature(self.width)),
+            "outp": Out(multiplier_output_signature(2*self.width))
+        })
+        self.debug = debug
+
+
+    def elaborate(self, platform):  # noqa: D102
+        m = Module()
+
+        # The implementation of MulticycleMul is very similar to
+        # PipelinedMul, except for the lack of pipeline stages. See that
+        # class for detailed notes.
+        addend = Signal(signed(self.inp.data.a.shape().width + 1))
+        s_copy = Signal(Sign)
+
+        # b and output can share a backing store; every cycle, the
+        # concatenation of b and output gets shifted right after adding.
+        # Output gains one bit per cycle while b loses one bit.
+        #
+        # The output portion of the concatenation can't tell the difference
+        # between the input (to be added) being shifted left and the output
+        # being shifted right before adding, as long as the backing store
+        # is wide enough.
+        intermediate = Signal(signed(2*self.width + 1))
+        iters_left = Signal(range(self.inp.data.b.shape().width))
+        in_progress = Signal()
+
+        m.d.comb += self.inp.rdy.eq((self.outp.rdy & self.outp.valid) |
+                                    ~in_progress)
+        m.d.comb += in_progress.eq(iters_left != 0)
+
+        with m.If(self.outp.valid & self.outp.rdy):
+            m.d.sync += self.outp.valid.eq(0)
+
+        with m.If(self.inp.rdy & self.inp.valid):
+            m.d.sync += [
+                s_copy.eq(self.inp.data.sign),
+                iters_left.eq(self.inp.data.b.shape().width - 1)
+            ]
+
+            with m.If((self.inp.data.sign == Sign.SIGNED) &
+                      self.inp.data.b.as_signed()[-1]):
+                # We've already done the first calculation so premptively
+                # shift when initializing the backing store.
+                pprod = (-self.inp.data.a.as_signed() *
+                         (-self.inp.data.b.as_signed())[0])
+                oshift = len(self.inp.data.b)
+
+                m.d.sync += [
+                    addend.eq(-self.inp.data.a.as_signed()),
+                    # Load-bearing parens... (-self.inp.data.b) will increase
+                    # width by one to accomodate negating the most negative
+                    # value. We don't actually want this because it'll
+                    # disturb the backing store for the output, so suppress
+                    # by using (-self.inp.data.b)[:-1].
+                    intermediate.eq(((pprod << oshift) |
+                                     (-self.inp.data.b)[:-1]) >> 1),
+                ]
+            with m.Else():
+                # Quash sign-extension of "a" if unsigned multiply.
+                with m.If(self.inp.data.sign == Sign.UNSIGNED):
+                    pprod = (self.inp.data.a * self.inp.data.b[0])
+                    oshift = len(self.inp.data.b)
+
+                    m.d.sync += [
+                        addend.eq(self.inp.data.a),
+                        intermediate.eq(((pprod << oshift) |
+                                         self.inp.data.b) >> 1),
+                    ]
+                with m.Else():
+                    pprod = (self.inp.data.a.as_signed() *
+                             self.inp.data.b[0])
+                    oshift = len(self.inp.data.b)
+
+                    m.d.sync += [
+                        addend.eq(self.inp.data.a.as_signed()),
+                        intermediate.eq(((pprod << oshift) |
+                                         self.inp.data.b) >> 1),
+                    ]
+
+        with m.If(iters_left != 0):
+            m.d.sync += iters_left.eq(iters_left - 1)
+
+            pprod = (addend * intermediate[0])
+            oshift = len(self.inp.data.b)
+
+            m.d.sync += \
+                intermediate.eq((intermediate + (pprod << oshift)) >> 1)
+
+            with m.If(iters_left - 1 == 0):
+                m.d.sync += self.outp.valid.eq(1)
+
+        m.d.comb += [
+            self.outp.data.o.eq(intermediate),
+            self.outp.data.sign.eq(s_copy),
+        ]
 
         return m
