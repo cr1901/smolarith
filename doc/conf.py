@@ -39,6 +39,8 @@ autodoc_default_options = {"members": True,
 todo_include_todos = True
 napoleon_custom_sections = ["Future Directions"]
 
+myst_footnote_transition = False
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
