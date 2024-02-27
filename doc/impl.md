@@ -124,6 +124,7 @@ turned finding the quotient and remainder into the following Python code:
 >>>
 >>> restoring_div(1362, 14, 12)
 (97, 4)
+
 ```
 
 This is the core of restoring division. It's called restoring because if
@@ -215,6 +216,7 @@ our [constraints](constraint). A working implementation looks like such:
 >>>
 >>> nonrestoring_div(1362, 14, 12)
 (97, 4)
+
 ```
 
 This technique is called non-restoring division, thanks to the lack of

@@ -18,3 +18,4 @@ jobs:
     - name: Run tests
       run: |
         pdm run pytest
+        pdm run doc-test
