@@ -518,14 +518,76 @@ class PipelinedMul(Component):
 
 
 class MulticycleMul(Component):
-    def __init__(self, width=16, debug=False):
+    r"""Multicycle multiplier soft-core.
+
+    This multiplier core is a gateware implementation of shift-add
+    multiplication.
+
+    * A multiply starts on the current cycle when both ``inp.valid`` and
+      ``inp.rdy`` are asserted.
+    * A multiply result is available when ``outp.valid`` is asserted. The
+      result is read/overwritten once a downstream core asserts ``outp.rdy``.
+
+    .. todo::
+
+        Update to Amaranth streams when available.
+
+    * Latency: Multiply Results for a will be available ``width`` clock cycles
+      after assertion of both ``inp.valid`` and ``inp.rdy``.
+
+    * Throughput: One multiply maximum is finished every ``width`` clock
+      cycles.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of both inputs ``a`` and ``b``. For signed
+        multiplies, this includes the sign bit. Output ``o`` width will
+        be :math:`2*n`.
+
+    Attributes
+    ----------
+    width : int
+        Bit width of the inputs ``a`` and ``b``. Output ``o`` width will
+        be :math:`2*n`.
+    inp : In(multiplier_input_signature(width))
+        Input interface to the multiplier.
+    outp : Out(multiplier_output_signature(width))
+        Output interface of the multiplier.
+
+    Notes
+    -----
+    * This multiplier is a naive shift-add implementation, similar to how
+      pen-and-pad multiplication in base-2/10 works. Internally, the multiplier
+      treats the multiplier ``a`` as signed and the multiplicand ``b`` as
+      unsigned.
+     
+      ``a``'s signedness only matters for the most-negative value possible for
+      a given bit-width :math:`n`, where twos-complementing would not change
+      the bit-pattern. Therefore, ``a`` is
+      :ref:`automatically <amaranth:lang-widthext>` sign-extended to
+      :math:`n + 1` bits in the input stage before any further processing.
+     
+      If ``b`` is negative, both ``b`` and ``a`` are twos-complemented in the
+      input stage; since :math:`a * b = -a * -b`, no inverse transformation on
+      the output stage is needed.
+
+    * For an :math:`n`-bit multiply, this multiplier requires :math:`O(3*n)`
+      storage elements (to store copies of the input, output, and intermediate
+      results).
+
+    * The output product and (possibly-inverted) ``b`` input share a backing
+      store. This works because only ``b``'s LSb is used each cycle and needs
+      to be shifted out at the end of the cycle. Consequently, upper bits of
+      ``o`` can be shifted in while lower bits of ``b`` are shifted out.
+    """
+
+    def __init__(self, width=16):
         self.width = width
         super().__init__({
             "inp": In(multiplier_input_signature(self.width)),
             "outp": Out(multiplier_output_signature(2*self.width))
         })
-        self.debug = debug
-
 
     def elaborate(self, platform):  # noqa: D102
         m = Module()

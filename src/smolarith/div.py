@@ -79,10 +79,12 @@ class Outputs(StructLayout):
     Attributes
     ----------
     sign: Sign
-        Indicates whether the multiply that produced this product was signed,
-        unsigned, or signed-unsigned.
-    o: Signal(width)
-        The product of :math:`a * b`.
+        Indicates whether the divider that produced this quotient/remainder
+        was signed or unsigned.
+    q: Signal(width)
+        The quotient of :math:`n / d`.
+    r: Signal(width)
+        The remainder of :math:`n / d`, i.e. :math:`n \bmod d`.
     """
 
     def __init__(self, width):
