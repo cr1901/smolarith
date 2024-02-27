@@ -49,14 +49,14 @@ class Inputs(StructLayout):
     Parameters
     ----------
     width : int
-        Width in bits of both inputs :attr:`a` and :attr:`b`. For signed
+        Width in bits of both inputs ``a`` and ``b``. For signed
         multiplies, this includes the sign bit.
 
     Attributes
     ----------
     sign: Sign
-        Controls the interpretation of the bit patterns of :attr:`a` and
-        :attr:`b` during multiplication.
+        Controls the interpretation of the bit patterns of ``a`` and ``b``
+        during multiplication.
     a: Signal(width)
         The multiplicand; i.e. the ':math:`a`' in :math:`a * b`.
     b: Signal(width)
@@ -79,14 +79,14 @@ class Outputs(StructLayout):
       :class:`~amaranth:amaranth.hdl.as_unsigned`
       :class:`~amaranth:amaranth.hdl.Shape`.
 
-    * When :attr:`sign` is ``SIGNED`` or ``SIGNED_UNSIGNED``, :attr:`o` should
+    * When :attr:`sign` is ``SIGNED`` or ``SIGNED_UNSIGNED``, ``o`` should
       be treated as a Value with a :class:`~amaranth:amaranth.hdl.as_signed`
       Shape.
 
     Parameters
     ----------
     width : int
-        Width in bits of the output :attr:`o`. For signed multiplies, this
+        Width in bits of the output ``o``. For signed multiplies, this
         includes the sign bit.
 
     Attributes
@@ -115,8 +115,8 @@ def multiplier_input_signature(width):
     Parameters
     ----------
     width : int
-        Width in bits of the output :attr:`o`. For signed
-        multiplies, this includes the sign bit.
+        Width in bits of the inputs ``a`` and ``b``. For signed multiplies,
+        this includes the sign bit.
 
     Returns
     -------
@@ -156,8 +156,7 @@ def multiplier_output_signature(width):
     that's usable as a transfer initiator **from** a multiplier.
 
     .. note:: For a core responding **to** a multiplier, which is the typical
-              use case, you will want to use this
-              :class:`~amaranth:amaranth.lib.wiring.Signature` with the
+              use case, you will want to use this Signature with the
               :data:`~amaranth:amaranth.lib.wiring.In` flow, like so:
 
               .. doctest::
@@ -247,7 +246,7 @@ class PipelinedMul(Component):
     Attributes
     ----------
     width : int
-        Bit with of the inputs ``a`` and ``b``. Output ``o`` width will
+        Bit width of the inputs ``a`` and ``b``. Output ``o`` width will
         be :math:`2*n`.
     inp : In(multiplier_input_signature(width))
         Input interface to the multiplier.
