@@ -35,7 +35,7 @@ lint.extend-select = ["E501", "D"]
 lint.pydocstyle.convention = "numpy"
 lint.pycodestyle.max-line-length = 79  # flake8 compat
 # I don't see the need to document tests like they're a public API.
-lint.per-file-ignores = { "tests/**/test_*.py" = ["D103", "D100"] }
+lint.per-file-ignores = { "tests/**/*.py" = ["D10"] }
 
 [tool.pdm.dev-dependencies]
 dev = [

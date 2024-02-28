@@ -119,7 +119,8 @@ def signed_tb(sim_mod):
                 assert (yield m.outp.valid) == 1
                 assert (yield m.outp.payload.sign) == Sign.SIGNED.value
                 if n == -2**(m.width-1) and d == -1:
-                    assert (yield m.outp.payload.q.as_signed()) == -2**(m.width-1)
+                    assert (yield m.outp.payload.q.as_signed()) == \
+                        -2**(m.width-1)
                     assert (yield m.outp.payload.r.as_signed()) == 0
                 elif d == 0:
                     assert (yield m.outp.payload.q.as_signed()) == -1

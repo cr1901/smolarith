@@ -1,7 +1,7 @@
 """Soft-core multiplier components."""
 
 from amaranth import Module, Signal, signed, unsigned
-from amaranth.lib.data import ArrayLayout, StructLayout, UnionLayout
+from amaranth.lib.data import ArrayLayout, StructLayout
 from amaranth.lib.wiring import Signature, In, Out, Component
 
 from amaranth.lib.enum import IntEnum, auto

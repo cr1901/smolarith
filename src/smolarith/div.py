@@ -501,14 +501,14 @@ class _NonRestoringDiv(Component):
                 # S = (S << 1) + D, encoded in top half.
                 # q = -1, encoded as 0, encoded in bottom half.
                 m.d.sync += intermediate.eq(((intermediate << 1) +
-                                            (self.inp.payload.d << self.width)))
+                                            (self.inp.payload.d << self.width)))  # noqa: E501
             with m.Else():
                 # S = (S << 1) - D, encoded in top half.
                 # q = 1, encoded as 1, encoded in bottom half.
                 m.d.sync += intermediate.eq(((intermediate << 1) -
-                                            (self.inp.payload.d << self.width)) |
-                                            1)
-        
+                                            (self.inp.payload.d << self.width)) | 1)  # noqa: E501
+
+
         with m.If(restore_step):
             m.d.sync += [
                 restore_step.eq(0),
@@ -704,7 +704,8 @@ class LongDivider(Component):
                 ]
             with m.Else():
                 m.d.comb += [
-                    mag.divisor.eq(self.inp.payload.d.as_unsigned() * shift_amt),
+                    mag.divisor.eq(self.inp.payload.d.as_unsigned() *
+                                   shift_amt),
                     mag.dividend.eq(self.inp.payload.n.as_unsigned())
                 ]
 
@@ -718,7 +719,7 @@ class LongDivider(Component):
                     with m.If(self.inp.payload.sign == Sign.SIGNED):
                         # If high bit is set, and, a signed div,
                         # we want to sign-extend.
-                        m.d.sync += remainder.eq(self.inp.payload.n.as_signed() -
+                        m.d.sync += remainder.eq(self.inp.payload.n.as_signed() -  # noqa: E501
                                                  (self.inp.payload.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
                     with m.Else():
                         # Otherwise, zero-extend.
@@ -768,7 +769,7 @@ class LongDivider(Component):
                 ]
             with m.Else():
                 m.d.comb += [
-                    mag.divisor.eq(self.inp.payload.d.as_unsigned() * shift_amt),
+                    mag.divisor.eq(self.inp.payload.d.as_unsigned() * shift_amt),  # noqa: E501
                     mag.dividend.eq(remainder)
                 ]
 
