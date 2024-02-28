@@ -1,13 +1,14 @@
 import pytest
 from math import fmod
-from smolarith.div import LongDivider, Sign
+from functools import partial
+from smolarith.div import LongDivider, Sign, MulticycleDiv
 
 
 @pytest.fixture
 def reference_tb(sim_mod, n, d, q, r, sign):
     _, m = sim_mod
 
-    def testbench():
+    def testbench(delay):
         yield m.inp.data.n.eq(n)
         yield m.inp.data.d.eq(d)
         yield m.inp.data.sign.eq(sign)
@@ -17,7 +18,7 @@ def reference_tb(sim_mod, n, d, q, r, sign):
         yield m.inp.valid.eq(0)  # Only schedule one xfer.
         yield m.outp.rdy.eq(1)  # Immediately ready for retrieval.
         yield
-        for _ in range(11):
+        for _ in range(delay):
             yield
 
         assert (yield m.outp.valid) == 1
@@ -172,7 +173,19 @@ def unsigned_tb(sim_mod):
                                           (1362, 14, 97, 4, Sign.UNSIGNED),])
 def test_reference_div(sim_mod, reference_tb):
     sim, _ = sim_mod
-    sim.run(sync_processes=[reference_tb])
+    sim.run(sync_processes=[partial(reference_tb, 12 - 1)])
+
+
+@pytest.mark.module(MulticycleDiv(12))
+@pytest.mark.clks((1.0 / 12e6,))
+@pytest.mark.parametrize("n,d,q,r,sign", [(1362, 14, 97, 4, Sign.SIGNED),
+                                          (-1362, 14, -97, -4, Sign.SIGNED),
+                                          (1362, -14, -97, 4, Sign.SIGNED),
+                                          (-1362, -14, 97, -4, Sign.SIGNED),
+                                          (1362, 14, 97, 4, Sign.UNSIGNED),])
+def test_reference_div_nr(sim_mod, reference_tb):
+    sim, _ = sim_mod
+    sim.run(sync_processes=[partial(reference_tb, 34 - 1)])
 
 
 @pytest.mark.module(LongDivider(12))

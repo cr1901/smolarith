@@ -2,7 +2,7 @@
 
 from amaranth import Elaboratable, Module, Signal, signed, C, unsigned
 from amaranth.lib.data import StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component
+from amaranth.lib.wiring import Signature, In, Out, Component, connect, flipped
 from amaranth.lib.enum import IntEnum, auto
 
 
@@ -193,6 +193,243 @@ def divider_output_signature(width):
         "rdy": In(1),
         "valid": Out(1)
     })
+
+
+class MulticycleDiv(Component):
+    """Non-restoring divider soft-core."""
+
+    def __init__(self, width=8):
+        self.width = width
+        self.to_u = _SignedUnsignedConverter(width)
+        self.nrdiv = _NonRestoringDiv(width)
+        self.from_u = _UnsignedSignedConverter(width)
+
+        super().__init__({
+            "inp": In(divider_input_signature(self.width)),
+            "outp": Out(divider_output_signature(self.width))
+        })
+
+
+    def elaborate(self, plat):  # noqa: D102
+        m = Module()
+
+        m.submodules.to_u = self.to_u
+        m.submodules.nrdiv = self.nrdiv
+        m.submodules.from_u = self.from_u
+
+        connect(m, flipped(self.inp), self.to_u.inp)
+        connect(m, self.to_u.outp, self.nrdiv.inp)
+        connect(m, self.nrdiv.outp, self.from_u.inp)
+        connect(m, self.from_u.outp, flipped(self.outp))
+        connect(m, self.to_u.conv, self.from_u.conv)
+
+        return m
+
+
+class _Quadrant(StructLayout):
+    """Store sign information about divider inputs."""
+
+    def __init__(self):  # noqa: DOC
+        super().__init__({
+            "n": unsigned(1),
+            "d": unsigned(1),
+        })
+
+
+"""Pass sign information across an unsigned-only divider."""
+_ConvControl = Signature({
+    "quad": Out(_Quadrant()),
+    "rdy": In(1),
+    "valid": Out(1)
+})
+
+
+class _SignedUnsignedConverter(Component):
+    """Convert maybe signed data to unsigned."""
+
+    def __init__(self, width=8):  # noqa: DOC
+        self.width = width
+
+        super().__init__({
+            "inp": In(divider_input_signature(self.width)),
+            "outp": Out(divider_input_signature(self.width)),
+            "conv": Out(_ConvControl),
+        })
+
+    def elaborate(self, plat):
+        m = Module()
+
+        m.d.comb += self.inp.rdy.eq((~self.outp.valid |
+                                    (self.outp.valid & self.outp.rdy))
+                                    & (~self.conv.valid |
+                                    (self.conv.valid & self.conv.rdy)))
+        
+        with m.If(self.outp.valid & self.outp.rdy):
+            m.d.sync += self.outp.valid.eq(0)
+
+        with m.If(self.conv.valid & self.conv.rdy):
+            m.d.sync += self.conv.valid.eq(0)
+
+        # Prempt outp.valid.eq(0) if both interfaces are ready on the same
+        # cycle.
+        with m.If(self.inp.valid & self.inp.rdy):
+            m.d.sync += self.outp.valid.eq(1)
+            m.d.sync += self.conv.valid.eq(1)
+
+            m.d.sync += [
+                self.conv.quad.n.eq(self.inp.data.n[-1]),
+                self.conv.quad.d.eq(self.inp.data.d[-1]),
+                self.outp.data.n.eq(self.inp.data.n),
+                self.outp.data.d.eq(self.inp.data.d),
+            ]
+
+            with m.If(self.inp.data.sign == Sign.SIGNED):
+                with m.If(self.inp.data.n[-1]):
+                    m.d.sync += self.outp.data.n.eq(
+                        -self.inp.data.n.as_signed()[:-1])
+                with m.If(self.inp.data.d[-1]):
+                    m.d.sync += self.outp.data.d.eq(
+                        -self.inp.data.d.as_signed()[:-1])
+                    
+        return m
+
+
+class _UnsignedSignedConverter(Component):
+    """Convert maybe unsigned data to signed."""
+
+    def __init__(self, width=8):  # noqa: DOC
+        self.width = width
+
+        super().__init__({
+            "inp": In(divider_output_signature(self.width)),
+            "outp": Out(divider_output_signature(self.width)),
+            "conv": In(_ConvControl),
+        })
+
+    def elaborate(self, plat):
+        m = Module()
+
+        with m.If(self.outp.valid & self.outp.rdy):
+            m.d.sync += self.outp.valid.eq(0)
+
+        # Wait for both input interfaces to be valid, and then consume all
+        # input data at once.
+        with m.If(self.conv.valid & self.inp.valid &
+                  (~self.outp.valid | (self.outp.valid & self.outp.rdy))):
+            m.d.comb += [
+                self.conv.rdy.eq(1),
+                self.inp.rdy.eq(1)
+            ]
+            m.d.sync += self.outp.valid.eq(1)
+
+            m.d.sync += [
+                self.outp.data.q.eq(self.inp.data.q),
+                self.outp.data.r.eq(self.inp.data.r)
+            ]
+
+            with m.If(self.conv.quad.n & ~self.conv.quad.d):
+                m.d.sync += [
+                    self.outp.data.q.eq(self.inp.data.q.as_signed()[:-1]),
+                    self.outp.data.r.eq(self.inp.data.r.as_signed()[:-1])
+                ]
+
+            with m.If(~self.conv.quad.n & self.conv.quad.d):
+                m.d.sync += self.outp.data.q.eq(
+                    self.inp.data.q.as_signed()[:-1])
+                
+            with m.If(~self.conv.quad.n & ~self.conv.quad.d):
+                m.d.sync += self.outp.data.r.eq(
+                    self.inp.data.r.as_signed()[:-1])
+                
+        return m
+
+
+class _NonRestoringDiv(Component):
+    """Unsigned-only non-restoring divider."""
+
+    def __init__(self, width=8):  # noqa: DOC
+        self.width = width
+        # sign Signals are unused- Sign.UNSIGNED is implicit.
+        super().__init__({
+            "inp": In(divider_input_signature(self.width)),
+            "outp": Out(divider_output_signature(self.width))
+        })
+
+    def elaborate(self, platform):
+        m = Module()
+
+        intermediate = Signal(2*self.width)
+        iters_left = Signal(range(self.inp.data.n.shape().width))
+        in_progress = Signal()
+        restore_step = Signal()
+
+        m.d.comb += self.inp.rdy.eq((self.outp.rdy & self.outp.valid) |
+                                    ~in_progress)
+        m.d.comb += in_progress.eq((iters_left != 0) | restore_step)
+
+        with m.If(self.outp.valid & self.outp.rdy):
+            m.d.sync += self.outp.valid.eq(0)
+
+        with m.If(self.inp.rdy & self.inp.valid):
+            m.d.sync += iters_left.eq(self.inp.data.n.shape().width - 1)
+
+            # On initial iter, we'll never be below 0.
+            # S = (S << 1) - D, to be shifted into in top half, to be shifted
+            # into final position.
+            # q[-1] = 1, encoded as 1, encoded in bottom half, to be shifted
+            # into final position.
+            m.d.sync += intermediate[1:].eq((self.inp.data.n << 1) -
+                                            (self.inp.data.d << self.width) |
+                                            1)
+
+        with m.If(in_progress):
+            # State Control
+            m.d.sync += iters_left.eq(iters_left - 1)
+
+            with m.If((iters_left - 1) == 0):
+                m.d.sync += restore_step.eq(1)
+
+            # Loop iter
+            with m.If(intermediate[-1]):
+                # S = (S << 1) + D, encoded in top half.
+                # q = -1, encoded as 0, encoded in bottom half.
+                m.d.sync += intermediate.eq(((intermediate << 1) +
+                                            (self.inp.data.d << self.width)))
+            with m.Else():
+                # S = (S << 1) - D, encoded in top half.
+                # q = 1, encoded as 1, encoded in bottom half.
+                m.d.sync += intermediate.eq(((intermediate << 1) -
+                                            (self.inp.data.d << self.width)) |
+                                            1)
+        
+        with m.If(restore_step):
+            m.d.sync += [
+                restore_step.eq(0),
+                self.outp.valid.eq(1)
+            ]
+
+            # Extract encoded negative powers of two and then subtract.
+            m.d.sync += intermediate[:self.width].eq(
+                intermediate[:self.width] - ~intermediate[:self.width])
+
+            with m.If(intermediate[-1]):
+                # S += D
+                # q -= 1
+                m.d.sync += [
+                    intermediate[:self.width].eq(
+                        intermediate[:self.width] -
+                        ~intermediate[:self.width] -
+                        1),
+                    intermediate[self.width:].eq(
+                        intermediate[self.width:] + self.inp.data.d)
+                ]
+
+        m.d.comb += [
+            self.outp.data.q.eq(intermediate[:self.width]),
+            self.outp.data.r.eq(intermediate[self.width:])
+        ]
+
+        return m
 
 
 class LongDivider(Component):
@@ -483,3 +720,9 @@ class _MagnitudeComparator(Elaboratable):
         m.d.comb += self.o.eq(abs(self.divisor) <= abs(self.dividend))
 
         return m
+
+
+if __name__ == "__main__":
+    from amaranth.back.verilog import convert
+
+    print(convert(MulticycleDiv(32)))
