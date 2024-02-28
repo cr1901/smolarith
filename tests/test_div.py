@@ -3,15 +3,9 @@ from math import fmod
 from smolarith.div import LongDivider, Sign
 
 
-@pytest.mark.module(LongDivider(12))
-@pytest.mark.clks((1.0 / 12e6,))
-@pytest.mark.parametrize("n,d,q,r,sign", [(1362, 14, 97, 4, Sign.SIGNED),
-                                          (-1362, 14, -97, -4, Sign.SIGNED),
-                                          (1362, -14, -97, 4, Sign.SIGNED),
-                                          (-1362, -14, 97, -4, Sign.SIGNED),
-                                          (1362, 14, 97, 4, Sign.UNSIGNED),])
-def test_reference_div(sim_mod, n, d, q, r, sign):
-    sim, m = sim_mod
+@pytest.fixture
+def reference_tb(sim_mod, n, d, q, r, sign):
+    _, m = sim_mod
 
     def testbench():
         yield m.inp.data.n.eq(n)
@@ -39,30 +33,12 @@ def test_reference_div(sim_mod, n, d, q, r, sign):
         yield
         assert (yield m.outp.valid) == 0
 
-    sim.run(sync_processes=[testbench])
+    return testbench
 
 
-@pytest.mark.module(LongDivider(12))
-@pytest.mark.clks((1.0 / 12e6,))
-@pytest.mark.parametrize("n,d,q,r,sign", [
-    # 100000000001
-    (2049, 2, 1024, 1, Sign.UNSIGNED),
-    # 100000000001
-    (-2047, 2, -1023, -1, Sign.SIGNED),
-    # 100000000000
-    (2048, 2, 1024, 0, Sign.UNSIGNED),
-    # 100000000000
-    (-2048, 2, -1024, 0, Sign.SIGNED),
-    # 100000000000
-    (2048, 1, 2048, 0, Sign.UNSIGNED),
-    # 100000000000
-    (-2048, 1, -2048, 0, Sign.SIGNED),
-    # 011111111111
-    (2047, 2, 1023, 1, Sign.UNSIGNED),
-    # 011111111111
-    (2047, 2, 1023, 1, Sign.SIGNED)])
-def test_signed_unsigned_mismatch(sim_mod, n, d, q, r, sign):
-    sim, m = sim_mod
+@pytest.fixture
+def mismatch_tb(sim_mod, n, d, q, r, sign):
+    _, m = sim_mod
 
     def testbench():
         yield m.inp.data.n.eq(n)
@@ -90,17 +66,12 @@ def test_signed_unsigned_mismatch(sim_mod, n, d, q, r, sign):
         yield
         assert (yield m.outp.valid) == 0
 
-    sim.run(sync_processes=[testbench])
+    return testbench
 
 
-@pytest.mark.module(LongDivider(32))
-@pytest.mark.clks((1.0 / 12e6,))
-@pytest.mark.parametrize("n,d,q,r", [(-(2**31), -1, -(2**31), 0),
-                                     (1, 0, -1, 1),
-                                     (-1, 0, -1, -1),
-                                     (0xff, 0, -1, 0xff)])
-def test_riscv_compliance(sim_mod, n, d, q, r):
-    sim, m = sim_mod
+@pytest.fixture
+def riscv_tb(sim_mod, n, d, q, r):
+    _, m = sim_mod
 
     def testbench():
         yield m.inp.data.n.eq(n)
@@ -123,13 +94,12 @@ def test_riscv_compliance(sim_mod, n, d, q, r):
         yield
         assert (yield m.outp.valid) == 0
 
-    sim.run(sync_processes=[testbench])
+    return testbench
 
 
-@pytest.mark.module(LongDivider(8))
-@pytest.mark.clks((1.0 / 12e6,))
-def test_div_8bit_signed(sim_mod):
-    sim, m = sim_mod
+@pytest.fixture
+def signed_tb(sim_mod):
+    _, m = sim_mod
 
     def testbench():
         for n in range(-2**(m.width-1), 2**(m.width-1)):
@@ -158,13 +128,12 @@ def test_div_8bit_signed(sim_mod):
                     assert (yield m.outp.data.q.as_signed()) == int(n / d)
                     assert (yield m.outp.data.r.as_signed()) == fmod(n, d)
 
-    sim.run(sync_processes=[testbench])
+    return testbench
 
 
-@pytest.mark.module(LongDivider(8))
-@pytest.mark.clks((1.0 / 12e6,))
-def test_div_8bit_unsigned(sim_mod):
-    sim, m = sim_mod
+@pytest.fixture
+def unsigned_tb(sim_mod):
+    _, m = sim_mod
 
     def testbench():
         for n in range(0, 2**m.width):
@@ -191,4 +160,65 @@ def test_div_8bit_unsigned(sim_mod):
                     assert (yield m.outp.data.q.as_unsigned()) == int(n / d)
                     assert (yield m.outp.data.r.as_unsigned()) == fmod(n, d)
 
-    sim.run(sync_processes=[testbench])
+    return testbench
+
+
+@pytest.mark.module(LongDivider(12))
+@pytest.mark.clks((1.0 / 12e6,))
+@pytest.mark.parametrize("n,d,q,r,sign", [(1362, 14, 97, 4, Sign.SIGNED),
+                                          (-1362, 14, -97, -4, Sign.SIGNED),
+                                          (1362, -14, -97, 4, Sign.SIGNED),
+                                          (-1362, -14, 97, -4, Sign.SIGNED),
+                                          (1362, 14, 97, 4, Sign.UNSIGNED),])
+def test_reference_div(sim_mod, reference_tb):
+    sim, _ = sim_mod
+    sim.run(sync_processes=[reference_tb])
+
+
+@pytest.mark.module(LongDivider(12))
+@pytest.mark.clks((1.0 / 12e6,))
+@pytest.mark.parametrize("n,d,q,r,sign", [
+    # 100000000001
+    (2049, 2, 1024, 1, Sign.UNSIGNED),
+    # 100000000001
+    (-2047, 2, -1023, -1, Sign.SIGNED),
+    # 100000000000
+    (2048, 2, 1024, 0, Sign.UNSIGNED),
+    # 100000000000
+    (-2048, 2, -1024, 0, Sign.SIGNED),
+    # 100000000000
+    (2048, 1, 2048, 0, Sign.UNSIGNED),
+    # 100000000000
+    (-2048, 1, -2048, 0, Sign.SIGNED),
+    # 011111111111
+    (2047, 2, 1023, 1, Sign.UNSIGNED),
+    # 011111111111
+    (2047, 2, 1023, 1, Sign.SIGNED)])
+def test_signed_unsigned_mismatch(sim_mod, mismatch_tb):
+    sim, _ = sim_mod
+    sim.run(sync_processes=[mismatch_tb])
+
+
+@pytest.mark.module(LongDivider(32))
+@pytest.mark.clks((1.0 / 12e6,))
+@pytest.mark.parametrize("n,d,q,r", [(-(2**31), -1, -(2**31), 0),
+                                     (1, 0, -1, 1),
+                                     (-1, 0, -1, -1),
+                                     (0xff, 0, -1, 0xff)])
+def test_riscv_compliance(sim_mod, riscv_tb):
+    sim, _ = sim_mod
+    sim.run(sync_processes=[riscv_tb])
+
+
+@pytest.mark.module(LongDivider(8))
+@pytest.mark.clks((1.0 / 12e6,))
+def test_div_8bit_signed(sim_mod, signed_tb):
+    sim, _ = sim_mod
+    sim.run(sync_processes=[signed_tb])
+
+
+@pytest.mark.module(LongDivider(8))
+@pytest.mark.clks((1.0 / 12e6,))
+def test_div_8bit_unsigned(sim_mod, unsigned_tb):
+    sim, m = sim_mod
+    sim.run(sync_processes=[unsigned_tb])

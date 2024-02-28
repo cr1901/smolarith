@@ -62,7 +62,7 @@ def all_values_tb(request, sim_mod):
     return mk_unpipelined_testbench(m, product(a_range, b_range, (mode,)))
 
 
-@pytest.mark.module(MulticycleMul(6, debug=True))
+@pytest.mark.module(MulticycleMul(6))
 @pytest.mark.clks((1.0 / 12e6,))
 @pytest.mark.parametrize("all_values_tb", [Sign.UNSIGNED, Sign.SIGNED,
                                            Sign.SIGNED_UNSIGNED],
