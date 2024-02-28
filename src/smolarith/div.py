@@ -281,15 +281,16 @@ class _SignedUnsignedConverter(Component):
                 self.conv.quad.d.eq(self.inp.data.d[-1]),
                 self.outp.data.n.eq(self.inp.data.n),
                 self.outp.data.d.eq(self.inp.data.d),
+                self.outp.data.sign.eq(self.inp.data.sign)
             ]
 
             with m.If(self.inp.data.sign == Sign.SIGNED):
                 with m.If(self.inp.data.n[-1]):
                     m.d.sync += self.outp.data.n.eq(
-                        -self.inp.data.n.as_signed()[:-1])
+                        (-self.inp.data.n.as_signed())[:-1])
                 with m.If(self.inp.data.d[-1]):
                     m.d.sync += self.outp.data.d.eq(
-                        -self.inp.data.d.as_signed()[:-1])
+                        (-self.inp.data.d.as_signed())[:-1])
                     
         return m
 
@@ -324,22 +325,29 @@ class _UnsignedSignedConverter(Component):
 
             m.d.sync += [
                 self.outp.data.q.eq(self.inp.data.q),
-                self.outp.data.r.eq(self.inp.data.r)
+                self.outp.data.r.eq(self.inp.data.r),
+                self.outp.data.sign.eq(self.inp.data.sign)
             ]
 
-            with m.If(self.conv.quad.n & ~self.conv.quad.d):
+            with m.If((self.inp.data.sign == Sign.SIGNED) &
+                      self.conv.quad.n &
+                      ~self.conv.quad.d):
                 m.d.sync += [
-                    self.outp.data.q.eq(self.inp.data.q.as_signed()[:-1]),
-                    self.outp.data.r.eq(self.inp.data.r.as_signed()[:-1])
+                    self.outp.data.q.eq((-self.inp.data.q.as_signed())[:-1]),
+                    self.outp.data.r.eq((-self.inp.data.r.as_signed())[:-1])
                 ]
 
-            with m.If(~self.conv.quad.n & self.conv.quad.d):
+            with m.If((self.inp.data.sign == Sign.SIGNED) &
+                      ~self.conv.quad.n &
+                      self.conv.quad.d):
                 m.d.sync += self.outp.data.q.eq(
-                    self.inp.data.q.as_signed()[:-1])
+                    (-self.inp.data.q.as_signed())[:-1])
                 
-            with m.If(~self.conv.quad.n & ~self.conv.quad.d):
+            with m.If((self.inp.data.sign == Sign.SIGNED) &
+                      self.conv.quad.n &
+                      self.conv.quad.d):
                 m.d.sync += self.outp.data.r.eq(
-                    self.inp.data.r.as_signed()[:-1])
+                    (-self.inp.data.r.as_signed())[:-1])
                 
         return m
 
@@ -362,6 +370,7 @@ class _NonRestoringDiv(Component):
         iters_left = Signal(range(self.inp.data.n.shape().width))
         in_progress = Signal()
         restore_step = Signal()
+        s_copy = Signal(Sign)
 
         m.d.comb += self.inp.rdy.eq((self.outp.rdy & self.outp.valid) |
                                     ~in_progress)
@@ -371,18 +380,21 @@ class _NonRestoringDiv(Component):
             m.d.sync += self.outp.valid.eq(0)
 
         with m.If(self.inp.rdy & self.inp.valid):
-            m.d.sync += iters_left.eq(self.inp.data.n.shape().width - 1)
+            m.d.sync += [
+                s_copy.eq(self.inp.data.sign),
+                iters_left.eq(self.inp.data.n.shape().width - 1)
+            ]
 
             # On initial iter, we'll never be below 0.
             # S = (S << 1) - D, to be shifted into in top half, to be shifted
             # into final position.
             # q[-1] = 1, encoded as 1, encoded in bottom half, to be shifted
             # into final position.
-            m.d.sync += intermediate[1:].eq((self.inp.data.n << 1) -
-                                            (self.inp.data.d << self.width) |
-                                            1)
+            m.d.sync += intermediate.eq((self.inp.data.n << 1) -
+                                        (self.inp.data.d << self.width) |
+                                        1)
 
-        with m.If(in_progress):
+        with m.If(in_progress & ~restore_step):
             # State Control
             m.d.sync += iters_left.eq(iters_left - 1)
 
@@ -408,7 +420,9 @@ class _NonRestoringDiv(Component):
                 self.outp.valid.eq(1)
             ]
 
-            # Extract encoded negative powers of two and then subtract.
+            # Extract encoded negative powers of two and then subtract as if
+            # they were positive powers of two (so no twos complement
+            # conversion needed).
             m.d.sync += intermediate[:self.width].eq(
                 intermediate[:self.width] - ~intermediate[:self.width])
 
@@ -426,7 +440,8 @@ class _NonRestoringDiv(Component):
 
         m.d.comb += [
             self.outp.data.q.eq(intermediate[:self.width]),
-            self.outp.data.r.eq(intermediate[self.width:])
+            self.outp.data.r.eq(intermediate[self.width:]),
+            self.outp.data.sign.eq(s_copy)
         ]
 
         return m

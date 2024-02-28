@@ -185,7 +185,7 @@ def test_reference_div(sim_mod, reference_tb):
                                           (1362, 14, 97, 4, Sign.UNSIGNED),])
 def test_reference_div_nr(sim_mod, reference_tb):
     sim, _ = sim_mod
-    sim.run(sync_processes=[partial(reference_tb, 34 - 1)])
+    sim.run(sync_processes=[partial(reference_tb, 15 - 1)])
 
 
 @pytest.mark.module(LongDivider(12))
