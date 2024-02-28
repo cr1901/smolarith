@@ -137,7 +137,7 @@ def multiplier_input_signature(width):
             When ``1``, indicates that multiplier is ready.
 
         .. attribute:: .valid
-            :type: In(1)
+            :type: Out(1)
             :noindex:
 
             When ``1``, indicates that multiplier data input is valid.

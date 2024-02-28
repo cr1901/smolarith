@@ -3,10 +3,10 @@
 from amaranth import Elaboratable, Module, Signal, signed, C, unsigned
 from amaranth.lib.data import StructLayout
 from amaranth.lib.wiring import Signature, In, Out, Component, connect, flipped
-from amaranth.lib.enum import IntEnum, auto
+from amaranth.lib.enum import Enum, auto
 
 
-class Sign(IntEnum):
+class Sign(Enum):
     """Indicate the type of divide to be performed.
 
     * ``UNSIGNED``: Both inputs ``n`` and ``d`` are unsigned.
@@ -127,7 +127,7 @@ def divider_input_signature(width):
             When ``1``, indicates that divider is ready.
 
         .. attribute:: .valid
-            :type: In(1)
+            :type: Out(1)
             :noindex:
 
             When ``1``, indicates that divider data input is valid.
@@ -196,7 +196,96 @@ def divider_output_signature(width):
 
 
 class MulticycleDiv(Component):
-    """Non-restoring divider soft-core."""
+    # FIXME: I can't be .. _latency label to work, even with :ref:`latency`...
+    # always "undefined label"... huh?!
+    r"""Non-restoring divider soft-core.
+
+    This divider core is a gateware implementation of non-restoring division
+    :ref:`non-restoring division <derive-nr>`. It works for both signed and
+    unsigned divides, and should be preferred to :class:`LongDivider` in almost
+    all circumstances due to better resource usae.
+
+    * A divide starts on the current cycle when both ``inp.valid`` and
+      ``inp.rdy`` are asserted.
+    * A divide result is available when ``outp.valid`` is asserted. The
+      result is read/overwritten once a downstream core asserts ``outp.rdy``.
+
+    .. todo::
+
+        Update to Amaranth streams when available.
+
+    * Latency: Divide Results for a will be available ``width + 3`` clock
+      cycles after assertion of both ``inp.valid`` and ``inp.rdy``.
+
+    * Throughput: One divide maximum is finished every ``width + 3``
+      clock cycles.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of both inputs ``n`` and ``d``. For signed
+        multiplies, this includes the sign bit. Outputs ``q`` and ``r`` width
+        will be the same width.
+
+    Attributes
+    ----------
+    width : int
+        Bit width of the inputs ``n`` and ``d``, and outputs ``q`` and ``r``.
+    inp : In(divider_input_signature(width))
+        Input interface to the divider.
+    outp : Out(divider_output_signature(width))
+        Output interface of the divider.
+
+    Notes
+    -----
+    * This divider is implemented using non-restoring division, and is
+      basically a gateware translation of the
+      :ref:`Python implementation <nrdiv-py>` shown in :ref:`impl`.
+
+    * Internally, the divider converts its operands from signed to unsigned
+      if necessary, performs the division, and the converts back from unsigned
+      to signed if necessary. I ran into some :ref:`issues <signedness>` with
+      making a signed-aware non-restoring divider such that eating the
+      conversion cost latency is probably justifiable for implementation
+      simplicity.
+
+      Additionally, the quotient and remainder require a possible
+      :ref:`final restore step <nrdiv-restore>`. Remainder restore is
+      implemented as shown in the :ref:`Python code <nrdiv-py>`.
+      Quotient restore is implemented by subtracting the ones complement of the
+      raw quotient from the raw quotient itself.
+
+      .. _latency:
+
+      The combination of signed-to-unsigned conversion, restore step, and
+      unsigned-to-unsigned conversion adds three cycles of latency beyond
+      the expected ``width`` number of cycles to perform a division.
+
+    * The quotient and remainder share a backing store; new bits are shifted
+      into the lower-half quotient portion as the remainder is shifted into the
+      upper half. This works because each iteration of the non-restoring loop
+      checks the sign of the remainder, and the lower quotient bits won't
+      affect the sign bit.
+
+    * This divider is compliant with RISC-V semantics for divide-by-zero and
+      overflow when ``width=32`` or ``width=64``\ [rv]_. Specifically:
+
+      * Signed/unsigned divide-by-zero returns "all bits set" for the
+        quotient and the dividend as the remainder.
+      * Signed overflow (:math:`-2^{\{31,63\}}/-1`) returns
+        :math:`-2^{\{31,63\}}` for the quotient and :math:`0` as the
+        remainder.
+
+    Future Directions
+    -----------------
+
+    * It may be worthwhile to make a pipelined divider?
+
+    * Current latency is worse than the :class:`LongDivider`, which is just
+      about the only advantage to ``LongDivider``. We can provide an option to
+      reduce latency/resources required due to the signed/unsigned and restore
+      stages at the cost of some timing closure.
+    """
 
     def __init__(self, width=8):
         self.width = width
@@ -276,8 +365,14 @@ class _SignedUnsignedConverter(Component):
             m.d.sync += self.outp.valid.eq(1)
             m.d.sync += self.conv.valid.eq(1)
 
+            # Re: (self.inp.data.d != 0)
+            # For RISCV compliance when dividing by zero, we need to suppress
+            # signed-unsigned conversion. Treating the input bit pattern as-is
+            # will result in the correct behavior of "all bits set in divisor"
+            # and remainder unchanged, regardless of sign.
             m.d.sync += [
-                self.conv.quad.n.eq(self.inp.data.n[-1]),
+                self.conv.quad.n.eq(self.inp.data.n[-1] &
+                                    (self.inp.data.d != 0)),
                 self.conv.quad.d.eq(self.inp.data.d[-1]),
                 self.outp.data.n.eq(self.inp.data.n),
                 self.outp.data.d.eq(self.inp.data.d),
@@ -285,7 +380,7 @@ class _SignedUnsignedConverter(Component):
             ]
 
             with m.If(self.inp.data.sign == Sign.SIGNED):
-                with m.If(self.inp.data.n[-1]):
+                with m.If(self.inp.data.n[-1] & (self.inp.data.d != 0)):
                     m.d.sync += self.outp.data.n.eq(
                         (-self.inp.data.n.as_signed())[:-1])
                 with m.If(self.inp.data.d[-1]):
@@ -366,7 +461,9 @@ class _NonRestoringDiv(Component):
     def elaborate(self, platform):
         m = Module()
 
-        intermediate = Signal(2*self.width)
+        # Need extra bit because we need to subtract up to 2^width, which
+        # should remain negative.
+        intermediate = Signal(2*self.width + 1)
         iters_left = Signal(range(self.inp.data.n.shape().width))
         in_progress = Signal()
         restore_step = Signal()
@@ -478,13 +575,12 @@ class LongDivider(Component):
     width : int
         Width in bits of both inputs ``n`` and ``d``. For signed
         multiplies, this includes the sign bit. Outputs ``q`` and ``r`` width
-        will be :math:`2*n`.
+        will be the same width.
 
     Attributes
     ----------
     width : int
-        Bit width of the inputs ``n`` and ``d``. Outputs ``q`` and ``r`` width
-        will be :math:`2*n`.
+        Bit width of the inputs ``n`` and ``d``, and outputs ``q`` and ``r``.
     inp : In(divider_input_signature(width))
         Input interface to the divider.
     outp : Out(divider_output_signature(width))
@@ -492,7 +588,7 @@ class LongDivider(Component):
 
     Notes
     -----
-    * This multiplier is a naive long-division implementation, similar to how
+    * This divider is a naive long-division implementation, similar to how
       pen-and-pad division is done in base-2/10.
 
     * Internally, the divider is aware of the sign of its inputs as well as

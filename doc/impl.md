@@ -1,3 +1,4 @@
+(impl)=
 # Implementation Notes
 
 ## Multiplication
@@ -131,6 +132,7 @@ This is the core of restoring division. It's called restoring because if
 `S < 0` during any step, we have to restore the `D << n` that we subtracted.
 We can get rid of this step using non-restoring divison.
 
+(derive-nr)=
 ### Deriving Non-restoring Division
 
 In restoring division, {math}`q_0` through {math}`q_{n-1}` map precisely to
@@ -189,11 +191,13 @@ For each iteration {math}`j` of the [above](rr3-copy) equation:
   get closer to 0 by setting {math}`q_{n - (j + 1)} := -1` the next
   iteration and adding {math}`D`.
 
+(nrdiv-restore)=
 If the final {math}`S_n` is negative, we do a final restoring step by setting
 {math}`q := q - 1` and {math}`S := S + D`. This will bring the shifted
 remainder {math}`S` positive, and make our quotient {math}`q` even, satisfying
 our [constraints](constraint). A working implementation looks like such:
 
+(nrdiv-py)=
 ```{doctest}
 >>> def nonrestoring_div(N, D, n):
 ...     S = N
@@ -229,6 +233,7 @@ Discuss long division implementation vs non-restoring division, and why you
 should use the latter in almost all cases.
 ```
 
+(signedness)=
 ### Truncating Division And Signedness
 
 You can implement [various types](https://en.wikipedia.org/wiki/Modulo#Variants_of_the_definition)
