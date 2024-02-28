@@ -19,3 +19,7 @@ jobs:
       run: |
         pdm run pytest
         pdm run doc-test
+    - name: Check links
+      continue-on-error: true
+      run: |
+        pdm run doc-linkck
