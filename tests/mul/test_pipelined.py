@@ -21,32 +21,32 @@ def mk_pipelined_testbench(m, abs_iter):
         s_prev = None
 
         yield m.inp.valid.eq(1)
-        yield m.outp.rdy.eq(1)
+        yield m.outp.ready.eq(1)
 
         for (a, b, s) in abs_iter:
             if s == Sign.UNSIGNED:
                 if a != a_prev:
-                    yield m.inp.data.a.eq(a)
+                    yield m.inp.payload.a.eq(a)
                 if b != b_prev:
-                    yield m.inp.data.b.eq(b)
+                    yield m.inp.payload.b.eq(b)
             else:
                 if a != a_prev:
-                    yield m.inp.data.a.as_signed().eq(a)
+                    yield m.inp.payload.a.as_signed().eq(a)
                 if b != b_prev:
-                    yield m.inp.data.b.as_signed().eq(b)
+                    yield m.inp.payload.b.as_signed().eq(b)
 
             if s != s_prev:
-                yield m.inp.data.sign.eq(s)
+                yield m.inp.payload.sign.eq(s)
             yield
             (a_prev, b_prev, s_prev) = (a, b, s)
 
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            if (yield m.outp.data.sign) == Sign.UNSIGNED.value:
-                assert a_c*b_c == (yield m.outp.data.o)
+            if (yield m.outp.payload.sign) == Sign.UNSIGNED.value:
+                assert a_c*b_c == (yield m.outp.payload.o)
             else:
-                assert a_c*b_c == (yield m.outp.data.o.as_signed())
+                assert a_c*b_c == (yield m.outp.payload.o.as_signed())
 
             # print((a, b), (a_c, b_c), a_c*b_c, (yield m.o))
             # for i in range(8):
@@ -60,10 +60,10 @@ def mk_pipelined_testbench(m, abs_iter):
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
-            if (yield m.outp.data.sign) == Sign.UNSIGNED.value:
-                assert a_c*b_c == (yield m.outp.data.o)
+            if (yield m.outp.payload.sign) == Sign.UNSIGNED.value:
+                assert a_c*b_c == (yield m.outp.payload.o)
             else:
-                assert a_c*b_c == (yield m.outp.data.o.as_signed())
+                assert a_c*b_c == (yield m.outp.payload.o.as_signed())
 
     return testbench
 
@@ -115,15 +115,15 @@ def pipeline_tb(sim_mod):
     def testbench():
         _, m = sim_mod
 
-        yield m.inp.data.sign.eq(Sign.UNSIGNED)
-        yield m.inp.data.a.eq(1)
-        yield m.inp.data.b.eq(1)
+        yield m.inp.payload.sign.eq(Sign.UNSIGNED)
+        yield m.inp.payload.a.eq(1)
+        yield m.inp.payload.b.eq(1)
         yield m.inp.valid.eq(1)
-        yield m.outp.rdy.eq(1)
+        yield m.outp.ready.eq(1)
         yield
 
-        yield m.inp.data.a.eq(2)
-        yield m.inp.data.b.eq(2)
+        yield m.inp.payload.a.eq(2)
+        yield m.inp.payload.b.eq(2)
         yield
 
         # Pipeline should continue working...
@@ -131,59 +131,59 @@ def pipeline_tb(sim_mod):
         yield
 
         yield m.inp.valid.eq(1)
-        yield m.inp.data.a.eq(3)
-        yield m.inp.data.b.eq(3)
+        yield m.inp.payload.a.eq(3)
+        yield m.inp.payload.b.eq(3)
         yield
 
-        yield m.inp.data.a.eq(4)
-        yield m.inp.data.b.eq(4)
+        yield m.inp.payload.a.eq(4)
+        yield m.inp.payload.b.eq(4)
         yield
 
         yield m.inp.valid.eq(0)
         for _ in range(3):
             yield
 
-        yield m.outp.rdy.eq(0)
+        yield m.outp.ready.eq(0)
         yield
 
-        yield m.outp.rdy.eq(1)
+        yield m.outp.ready.eq(1)
         assert (yield m.outp.valid) == 1
-        assert (yield m.outp.data.sign) == Sign.UNSIGNED
-        assert (yield m.outp.data.o) == 1
+        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
+        assert (yield m.outp.payload.o) == 1
         # Pipeline should stall...
-        assert (yield m.inp.rdy) == 0
+        assert (yield m.inp.ready) == 0
         yield
 
         assert (yield m.outp.valid) == 1
-        assert (yield m.outp.data.sign) == Sign.UNSIGNED
-        assert (yield m.outp.data.o) == 1
-        assert (yield m.inp.rdy) == 1
+        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
+        assert (yield m.outp.payload.o) == 1
+        assert (yield m.inp.ready) == 1
         yield
 
         assert (yield m.outp.valid) == 1
-        assert (yield m.outp.data.sign) == Sign.UNSIGNED
-        assert (yield m.outp.data.o) == 4
-        assert (yield m.inp.rdy) == 1
+        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
+        assert (yield m.outp.payload.o) == 4
+        assert (yield m.inp.ready) == 1
         yield
 
         assert (yield m.outp.valid) == 0
-        assert (yield m.inp.rdy) == 1
+        assert (yield m.inp.ready) == 1
         yield
 
         assert (yield m.outp.valid) == 1
-        assert (yield m.outp.data.sign) == Sign.UNSIGNED
-        assert (yield m.outp.data.o) == 9
-        assert (yield m.inp.rdy) == 1
+        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
+        assert (yield m.outp.payload.o) == 9
+        assert (yield m.inp.ready) == 1
         yield
 
         assert (yield m.outp.valid) == 1
-        assert (yield m.outp.data.sign) == Sign.UNSIGNED
-        assert (yield m.outp.data.o) == 16
-        assert (yield m.inp.rdy) == 1
+        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
+        assert (yield m.outp.payload.o) == 16
+        assert (yield m.inp.ready) == 1
         yield
 
         assert (yield m.outp.valid) == 0
-        assert (yield m.inp.rdy) == 1
+        assert (yield m.inp.ready) == 1
         yield
 
     return testbench

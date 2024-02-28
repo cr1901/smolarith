@@ -112,15 +112,15 @@ def divider_input_signature(width):
     -------
     :class:`~amaranth:amaranth.lib.wiring.Signature`
         :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following attributes:
+        following members:
 
-        .. attribute:: .data
+        .. attribute:: .payload
             :type: Out(Inputs)
             :noindex:
 
             Data input to divider.
 
-        .. attribute:: .rdy
+        .. attribute:: .ready
             :type: In(1)
             :noindex:
 
@@ -133,8 +133,8 @@ def divider_input_signature(width):
             When ``1``, indicates that divider data input is valid.
     """
     return Signature({
-        "data": Out(Inputs(width)),
-        "rdy": In(1),
+        "payload": Out(Inputs(width)),
+        "ready": In(1),
         "valid": Out(1)
     })
 
@@ -167,15 +167,15 @@ def divider_output_signature(width):
     -------
     :class:`~amaranth:amaranth.lib.wiring.Signature`
         :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following attributes:
+        following members:
 
-        .. attribute:: .data
+        .. attribute:: .payload
             :type: Out(Outputs)
             :noindex:
 
             Data output **from** divider.
 
-        .. attribute:: .rdy
+        .. attribute:: .ready
             :type: In(1)
             :noindex:
 
@@ -189,8 +189,8 @@ def divider_output_signature(width):
             When ``1``, indicates that divider output data input is valid.
     """
     return Signature({
-        "data": Out(Outputs(width)),
-        "rdy": In(1),
+        "payload": Out(Outputs(width)),
+        "ready": In(1),
         "valid": Out(1)
     })
 
@@ -200,22 +200,18 @@ class MulticycleDiv(Component):
     # always "undefined label"... huh?!
     r"""Non-restoring divider soft-core.
 
-    This divider core is a gateware implementation of non-restoring division
+    This divider core is a gateware implementation of
     :ref:`non-restoring division <derive-nr>`. It works for both signed and
     unsigned divides, and should be preferred to :class:`LongDivider` in almost
-    all circumstances due to better resource usae.
+    all circumstances due to better resource usage.
 
     * A divide starts on the current cycle when both ``inp.valid`` and
-      ``inp.rdy`` are asserted.
+      ``inp.ready`` are asserted.
     * A divide result is available when ``outp.valid`` is asserted. The
-      result is read/overwritten once a downstream core asserts ``outp.rdy``.
-
-    .. todo::
-
-        Update to Amaranth streams when available.
+      result is read/overwritten once a downstream core asserts ``outp.ready``.
 
     * Latency: Divide Results for a will be available ``width + 3`` clock
-      cycles after assertion of both ``inp.valid`` and ``inp.rdy``.
+      cycles after assertion of both ``inp.valid`` and ``inp.ready``.
 
     * Throughput: One divide maximum is finished every ``width + 3``
       clock cycles.
@@ -241,6 +237,9 @@ class MulticycleDiv(Component):
     * This divider is implemented using non-restoring division, and is
       basically a gateware translation of the
       :ref:`Python implementation <nrdiv-py>` shown in :ref:`impl`.
+
+    * For an :math:`n`-bit divide, this divider requires approximately
+      :math:`O(6*n)` storage elements (to store intermediate results).
 
     * Internally, the divider converts its operands from signed to unsigned
       if necessary, performs the division, and the converts back from unsigned
@@ -298,7 +297,6 @@ class MulticycleDiv(Component):
             "outp": Out(divider_output_signature(self.width))
         })
 
-
     def elaborate(self, plat):  # noqa: D102
         m = Module()
 
@@ -328,7 +326,7 @@ class _Quadrant(StructLayout):
 """Pass sign information across an unsigned-only divider."""
 _ConvControl = Signature({
     "quad": Out(_Quadrant()),
-    "rdy": In(1),
+    "ready": In(1),
     "valid": Out(1)
 })
 
@@ -348,44 +346,44 @@ class _SignedUnsignedConverter(Component):
     def elaborate(self, plat):
         m = Module()
 
-        m.d.comb += self.inp.rdy.eq((~self.outp.valid |
-                                    (self.outp.valid & self.outp.rdy))
-                                    & (~self.conv.valid |
-                                    (self.conv.valid & self.conv.rdy)))
+        m.d.comb += self.inp.ready.eq((~self.outp.valid |
+                                       (self.outp.valid & self.outp.ready)) &
+                                      (~self.conv.valid |
+                                       (self.conv.valid & self.conv.ready)))
         
-        with m.If(self.outp.valid & self.outp.rdy):
+        with m.If(self.outp.valid & self.outp.ready):
             m.d.sync += self.outp.valid.eq(0)
 
-        with m.If(self.conv.valid & self.conv.rdy):
+        with m.If(self.conv.valid & self.conv.ready):
             m.d.sync += self.conv.valid.eq(0)
 
         # Prempt outp.valid.eq(0) if both interfaces are ready on the same
         # cycle.
-        with m.If(self.inp.valid & self.inp.rdy):
+        with m.If(self.inp.valid & self.inp.ready):
             m.d.sync += self.outp.valid.eq(1)
             m.d.sync += self.conv.valid.eq(1)
 
-            # Re: (self.inp.data.d != 0)
+            # Re: (self.inp.payload.d != 0)
             # For RISCV compliance when dividing by zero, we need to suppress
             # signed-unsigned conversion. Treating the input bit pattern as-is
             # will result in the correct behavior of "all bits set in divisor"
             # and remainder unchanged, regardless of sign.
             m.d.sync += [
-                self.conv.quad.n.eq(self.inp.data.n[-1] &
-                                    (self.inp.data.d != 0)),
-                self.conv.quad.d.eq(self.inp.data.d[-1]),
-                self.outp.data.n.eq(self.inp.data.n),
-                self.outp.data.d.eq(self.inp.data.d),
-                self.outp.data.sign.eq(self.inp.data.sign)
+                self.conv.quad.n.eq(self.inp.payload.n[-1] &
+                                    (self.inp.payload.d != 0)),
+                self.conv.quad.d.eq(self.inp.payload.d[-1]),
+                self.outp.payload.n.eq(self.inp.payload.n),
+                self.outp.payload.d.eq(self.inp.payload.d),
+                self.outp.payload.sign.eq(self.inp.payload.sign)
             ]
 
-            with m.If(self.inp.data.sign == Sign.SIGNED):
-                with m.If(self.inp.data.n[-1] & (self.inp.data.d != 0)):
-                    m.d.sync += self.outp.data.n.eq(
-                        (-self.inp.data.n.as_signed())[:-1])
-                with m.If(self.inp.data.d[-1]):
-                    m.d.sync += self.outp.data.d.eq(
-                        (-self.inp.data.d.as_signed())[:-1])
+            with m.If(self.inp.payload.sign == Sign.SIGNED):
+                with m.If(self.inp.payload.n[-1] & (self.inp.payload.d != 0)):
+                    m.d.sync += self.outp.payload.n.eq(
+                        (-self.inp.payload.n.as_signed())[:-1])
+                with m.If(self.inp.payload.d[-1]):
+                    m.d.sync += self.outp.payload.d.eq(
+                        (-self.inp.payload.d.as_signed())[:-1])
                     
         return m
 
@@ -405,44 +403,44 @@ class _UnsignedSignedConverter(Component):
     def elaborate(self, plat):
         m = Module()
 
-        with m.If(self.outp.valid & self.outp.rdy):
+        with m.If(self.outp.valid & self.outp.ready):
             m.d.sync += self.outp.valid.eq(0)
 
         # Wait for both input interfaces to be valid, and then consume all
         # input data at once.
         with m.If(self.conv.valid & self.inp.valid &
-                  (~self.outp.valid | (self.outp.valid & self.outp.rdy))):
+                  (~self.outp.valid | (self.outp.valid & self.outp.ready))):
             m.d.comb += [
-                self.conv.rdy.eq(1),
-                self.inp.rdy.eq(1)
+                self.conv.ready.eq(1),
+                self.inp.ready.eq(1)
             ]
             m.d.sync += self.outp.valid.eq(1)
 
             m.d.sync += [
-                self.outp.data.q.eq(self.inp.data.q),
-                self.outp.data.r.eq(self.inp.data.r),
-                self.outp.data.sign.eq(self.inp.data.sign)
+                self.outp.payload.q.eq(self.inp.payload.q),
+                self.outp.payload.r.eq(self.inp.payload.r),
+                self.outp.payload.sign.eq(self.inp.payload.sign)
             ]
 
-            with m.If((self.inp.data.sign == Sign.SIGNED) &
+            with m.If((self.inp.payload.sign == Sign.SIGNED) &
                       self.conv.quad.n &
                       ~self.conv.quad.d):
                 m.d.sync += [
-                    self.outp.data.q.eq((-self.inp.data.q.as_signed())[:-1]),
-                    self.outp.data.r.eq((-self.inp.data.r.as_signed())[:-1])
+                    self.outp.payload.q.eq((-self.inp.payload.q.as_signed())[:-1]),
+                    self.outp.payload.r.eq((-self.inp.payload.r.as_signed())[:-1])
                 ]
 
-            with m.If((self.inp.data.sign == Sign.SIGNED) &
+            with m.If((self.inp.payload.sign == Sign.SIGNED) &
                       ~self.conv.quad.n &
                       self.conv.quad.d):
-                m.d.sync += self.outp.data.q.eq(
-                    (-self.inp.data.q.as_signed())[:-1])
+                m.d.sync += self.outp.payload.q.eq(
+                    (-self.inp.payload.q.as_signed())[:-1])
                 
-            with m.If((self.inp.data.sign == Sign.SIGNED) &
+            with m.If((self.inp.payload.sign == Sign.SIGNED) &
                       self.conv.quad.n &
                       self.conv.quad.d):
-                m.d.sync += self.outp.data.r.eq(
-                    (-self.inp.data.r.as_signed())[:-1])
+                m.d.sync += self.outp.payload.r.eq(
+                    (-self.inp.payload.r.as_signed())[:-1])
                 
         return m
 
@@ -464,22 +462,22 @@ class _NonRestoringDiv(Component):
         # Need extra bit because we need to subtract up to 2^width, which
         # should remain negative.
         intermediate = Signal(2*self.width + 1)
-        iters_left = Signal(range(self.inp.data.n.shape().width))
+        iters_left = Signal(range(self.inp.payload.n.shape().width))
         in_progress = Signal()
         restore_step = Signal()
         s_copy = Signal(Sign)
 
-        m.d.comb += self.inp.rdy.eq((self.outp.rdy & self.outp.valid) |
-                                    ~in_progress)
+        m.d.comb += self.inp.ready.eq((self.outp.ready & self.outp.valid) |
+                                      ~in_progress)
         m.d.comb += in_progress.eq((iters_left != 0) | restore_step)
 
-        with m.If(self.outp.valid & self.outp.rdy):
+        with m.If(self.outp.valid & self.outp.ready):
             m.d.sync += self.outp.valid.eq(0)
 
-        with m.If(self.inp.rdy & self.inp.valid):
+        with m.If(self.inp.ready & self.inp.valid):
             m.d.sync += [
-                s_copy.eq(self.inp.data.sign),
-                iters_left.eq(self.inp.data.n.shape().width - 1)
+                s_copy.eq(self.inp.payload.sign),
+                iters_left.eq(self.inp.payload.n.shape().width - 1)
             ]
 
             # On initial iter, we'll never be below 0.
@@ -487,8 +485,8 @@ class _NonRestoringDiv(Component):
             # into final position.
             # q[-1] = 1, encoded as 1, encoded in bottom half, to be shifted
             # into final position.
-            m.d.sync += intermediate.eq((self.inp.data.n << 1) -
-                                        (self.inp.data.d << self.width) |
+            m.d.sync += intermediate.eq((self.inp.payload.n << 1) -
+                                        (self.inp.payload.d << self.width) |
                                         1)
 
         with m.If(in_progress & ~restore_step):
@@ -503,12 +501,12 @@ class _NonRestoringDiv(Component):
                 # S = (S << 1) + D, encoded in top half.
                 # q = -1, encoded as 0, encoded in bottom half.
                 m.d.sync += intermediate.eq(((intermediate << 1) +
-                                            (self.inp.data.d << self.width)))
+                                            (self.inp.payload.d << self.width)))
             with m.Else():
                 # S = (S << 1) - D, encoded in top half.
                 # q = 1, encoded as 1, encoded in bottom half.
                 m.d.sync += intermediate.eq(((intermediate << 1) -
-                                            (self.inp.data.d << self.width)) |
+                                            (self.inp.payload.d << self.width)) |
                                             1)
         
         with m.If(restore_step):
@@ -532,13 +530,13 @@ class _NonRestoringDiv(Component):
                         ~intermediate[:self.width] -
                         1),
                     intermediate[self.width:].eq(
-                        intermediate[self.width:] + self.inp.data.d)
+                        intermediate[self.width:] + self.inp.payload.d)
                 ]
 
         m.d.comb += [
-            self.outp.data.q.eq(intermediate[:self.width]),
-            self.outp.data.r.eq(intermediate[self.width:]),
-            self.outp.data.sign.eq(s_copy)
+            self.outp.payload.q.eq(intermediate[:self.width]),
+            self.outp.payload.r.eq(intermediate[self.width:]),
+            self.outp.payload.sign.eq(s_copy)
         ]
 
         return m
@@ -550,22 +548,19 @@ class LongDivider(Component):
     This divider core is a gateware implementation of classic long division.
 
     * A divide starts on the current cycle when both ``inp.valid`` and
-      ``inp.rdy`` are asserted.
+      ``inp.ready`` are asserted.
     * A divide result is available when ``outp.valid`` is asserted. The
-      result is read/overwritten once a downstream core asserts ``outp.rdy``.
+      result is read/overwritten once a downstream core asserts ``outp.ready``.
 
     .. warning::
 
         This core is not intended to be used in user designs due to poor
         resource usage. It is mainly kept as a known-to-work reference design
-        for possible equivalence checking later.
-
-    .. todo::
-
-        Update to Amaranth streams when available.
+        for possible equivalence checking later. Use :class:`MulticycleDiv`
+        instead.
 
     * Latency: Divide Results for a will be available ``width`` clock cycles
-      after assertion of both ``inp.valid`` and ``inp.rdy``.
+      after assertion of both ``inp.valid`` and ``inp.ready``.
 
     * Throughput: One divide maximum is finished every ``width``
       clock cycles.
@@ -635,25 +630,25 @@ class LongDivider(Component):
         n_sign = Signal()
 
         # Reduce latency by 1 cycle by preempting output being read.
-        m.d.comb += self.inp.rdy.eq((self.outp.rdy & self.outp.valid) |
-                                    ~in_progress)
+        m.d.comb += self.inp.ready.eq((self.outp.ready & self.outp.valid) |
+                                      ~in_progress)
         m.d.comb += in_progress.eq(iters_left != 0)
         m.d.comb += [
-            self.outp.data.q.eq(quotient),
-            self.outp.data.r.eq(remainder),
-            self.outp.data.sign.eq(s_copy),
+            self.outp.payload.q.eq(quotient),
+            self.outp.payload.r.eq(remainder),
+            self.outp.payload.sign.eq(s_copy),
         ]
 
-        with m.If(self.outp.rdy & self.outp.valid):
+        with m.If(self.outp.ready & self.outp.valid):
             m.d.sync += self.outp.valid.eq(0)
 
-        with m.If(self.inp.rdy & self.inp.valid):
+        with m.If(self.inp.ready & self.inp.valid):
             m.d.sync += [
                 # We handle first cycle using shift_amt mux.
                 iters_left.eq(self.width - 1),
-                a_sign.eq(self.inp.data.n[-1]),
-                n_sign.eq(self.inp.data.d[-1]),
-                s_copy.eq(self.inp.data.sign)
+                a_sign.eq(self.inp.payload.n[-1]),
+                n_sign.eq(self.inp.payload.d[-1]),
+                s_copy.eq(self.inp.payload.sign)
             ]
 
             # When dividing by 0, for RISCV compliance, we need the division to
@@ -662,9 +657,9 @@ class LongDivider(Component):
             # number by 0 returns 1. Note that the sign-bit processing doesn't
             # need to be special-cased, I do it anyway in case I see some
             # patterns I can refactor out.
-            with m.If((self.inp.data.sign == Sign.SIGNED) &
-                      (self.inp.data.d == 0) &
-                      self.inp.data.n[-1]):
+            with m.If((self.inp.payload.sign == Sign.SIGNED) &
+                      (self.inp.payload.d == 0) &
+                      self.inp.payload.n[-1]):
                 m.d.sync += a_sign.eq(0)
                 m.d.sync += n_sign.eq(0)
 
@@ -702,78 +697,78 @@ class LongDivider(Component):
             # We can use a magnitude comparator for this.
 
             shift_amt = 2**(self.width - 1)
-            with m.If(self.inp.data.sign == Sign.SIGNED):
+            with m.If(self.inp.payload.sign == Sign.SIGNED):
                 m.d.comb += [
-                    mag.divisor.eq((self.inp.data.d.as_signed() * shift_amt).as_signed()),  # noqa: E501
-                    mag.dividend.eq(self.inp.data.n.as_signed())
+                    mag.divisor.eq((self.inp.payload.d.as_signed() * shift_amt).as_signed()),  # noqa: E501
+                    mag.dividend.eq(self.inp.payload.n.as_signed())
                 ]
             with m.Else():
                 m.d.comb += [
-                    mag.divisor.eq(self.inp.data.d.as_unsigned() * shift_amt),
-                    mag.dividend.eq(self.inp.data.n.as_unsigned())
+                    mag.divisor.eq(self.inp.payload.d.as_unsigned() * shift_amt),
+                    mag.dividend.eq(self.inp.payload.n.as_unsigned())
                 ]
 
             with m.If(mag.o):
                 # If dividend/divisor are positive, subtract a positive
                 # shifted divisor from dividend.
-                with m.If((self.inp.data.sign == Sign.UNSIGNED) |
-                          (~self.inp.data.n[-1] & ~self.inp.data.d[-1]) |
-                          (self.inp.data.n[-1] & self.inp.data.d == 0)):
+                with m.If((self.inp.payload.sign == Sign.UNSIGNED) |
+                          (~self.inp.payload.n[-1] & ~self.inp.payload.d[-1]) |
+                          (self.inp.payload.n[-1] & self.inp.payload.d == 0)):
                     m.d.sync += quotient.eq(C(1) * shift_amt)
-                    with m.If(self.inp.data.sign == Sign.SIGNED):
+                    with m.If(self.inp.payload.sign == Sign.SIGNED):
                         # If high bit is set, and, a signed div,
                         # we want to sign-extend.
-                        m.d.sync += remainder.eq(self.inp.data.n.as_signed() -
-                                                 (self.inp.data.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
+                        m.d.sync += remainder.eq(self.inp.payload.n.as_signed() -
+                                                 (self.inp.payload.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
                     with m.Else():
                         # Otherwise, zero-extend.
-                        m.d.sync += remainder.eq(self.inp.data.n.as_unsigned() -  # noqa: E501
-                                                 (self.inp.data.d.as_unsigned() * C(1) * shift_amt))  # noqa: E501
+                        m.d.sync += remainder.eq(self.inp.payload.n.as_unsigned() -  # noqa: E501
+                                                 (self.inp.payload.d.as_unsigned() * C(1) * shift_amt))  # noqa: E501
                 # If dividend is negative, but divisor is positive, create a
                 # negative shifted divisor and subtract from the dividend.
-                with m.If((self.inp.data.sign == Sign.SIGNED) &
-                          self.inp.data.n[-1] & ~self.inp.data.d[-1] &
-                          ~(self.inp.data.d == 0 & self.inp.data.n[-1])):
+                with m.If((self.inp.payload.sign == Sign.SIGNED) &
+                          self.inp.payload.n[-1] & ~self.inp.payload.d[-1] &
+                          ~(self.inp.payload.d == 0 & self.inp.payload.n[-1])):
                     m.d.sync += quotient.eq(C(-1) * shift_amt)
-                    m.d.sync += remainder.eq(self.inp.data.n.as_signed() -
-                                             (self.inp.data.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
+                    m.d.sync += remainder.eq(self.inp.payload.n.as_signed() -
+                                             (self.inp.payload.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
                 # If dividend is positive, but divisor is negative, create a
                 # positive shifted divisor and subtract from the dividend.
-                with m.If((self.inp.data.sign == Sign.SIGNED) &
-                          ~self.inp.data.n[-1] & self.inp.data.d[-1]):
+                with m.If((self.inp.payload.sign == Sign.SIGNED) &
+                          ~self.inp.payload.n[-1] & self.inp.payload.d[-1]):
                     m.d.sync += quotient.eq(C(-1) * shift_amt)
-                    m.d.sync += remainder.eq(self.inp.data.n.as_signed() -
-                                             (self.inp.data.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
+                    m.d.sync += remainder.eq(self.inp.payload.n.as_signed() -
+                                             (self.inp.payload.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
                 # If dividend/divisor is negative, subtract a negative
                 # shifted divisor and subtract from the dividend.
-                with m.If((self.inp.data.sign == Sign.SIGNED) &
-                          self.inp.data.n[-1] & self.inp.data.d[-1]):
+                with m.If((self.inp.payload.sign == Sign.SIGNED) &
+                          self.inp.payload.n[-1] & self.inp.payload.d[-1]):
                     m.d.sync += quotient.eq(C(1) * shift_amt)
-                    m.d.sync += remainder.eq(self.inp.data.n.as_signed() -
-                                             (self.inp.data.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
+                    m.d.sync += remainder.eq(self.inp.payload.n.as_signed() -
+                                             (self.inp.payload.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
             with m.Else():
                 m.d.sync += quotient.eq(0)
-                with m.If(self.inp.data.sign == Sign.SIGNED):
+                with m.If(self.inp.payload.sign == Sign.SIGNED):
                     # If high bit is set, and, a signed div,
                     # we want to sign-extend.
-                    m.d.sync += remainder.eq(self.inp.data.n.as_signed())
+                    m.d.sync += remainder.eq(self.inp.payload.n.as_signed())
                 with m.Else():
                     # Otherwise, zero-extend.
-                    m.d.sync += remainder.eq(self.inp.data.n.as_unsigned())
+                    m.d.sync += remainder.eq(self.inp.payload.n.as_unsigned())
 
         # Main division loop.
         with m.If(in_progress):
             m.d.sync += iters_left.eq(iters_left - 1)
 
             shift_amt = (1 << (iters_left - 1).as_unsigned())
-            with m.If(self.inp.data.sign == Sign.SIGNED):
+            with m.If(self.inp.payload.sign == Sign.SIGNED):
                 m.d.comb += [
-                    mag.divisor.eq(self.inp.data.d.as_signed() * shift_amt),
+                    mag.divisor.eq(self.inp.payload.d.as_signed() * shift_amt),
                     mag.dividend.eq(remainder.as_signed())
                 ]
             with m.Else():
                 m.d.comb += [
-                    mag.divisor.eq(self.inp.data.d.as_unsigned() * shift_amt),
+                    mag.divisor.eq(self.inp.payload.d.as_unsigned() * shift_amt),
                     mag.dividend.eq(remainder)
                 ]
 
@@ -786,29 +781,29 @@ class LongDivider(Component):
                         # If high bit is set, and, a signed div,
                         # we want to sign-extend.
                         m.d.sync += remainder.eq(remainder -
-                                                 (self.inp.data.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
+                                                 (self.inp.payload.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
                     with m.Else():
                         # Otherwise, zero-extend.
                         m.d.sync += remainder.eq(remainder -
-                                                 (self.inp.data.d.as_unsigned() * C(1) * shift_amt))  # noqa: E501
+                                                 (self.inp.payload.d.as_unsigned() * C(1) * shift_amt))  # noqa: E501
                 # If dividend is negative, but divisor is positive, create a
                 # negative shifted divisor and subtract from the dividend.
                 with m.If((s_copy == Sign.SIGNED) & a_sign & ~n_sign): 
                     m.d.sync += quotient.eq(quotient + C(-1) * shift_amt)
                     m.d.sync += remainder.eq(remainder -
-                                             (self.inp.data.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
+                                             (self.inp.payload.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
                 # If dividend is positive, but divisor is negative, create a
                 # positive shifted divisor and subtract from the dividend.
                 with m.If((s_copy == Sign.SIGNED) & ~a_sign & n_sign):
                     m.d.sync += quotient.eq(quotient + C(-1) * shift_amt)
                     m.d.sync += remainder.eq(remainder -
-                                             (self.inp.data.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
+                                             (self.inp.payload.d.as_signed() * C(-1) * shift_amt).as_signed())  # noqa: E501
                 # If dividend/divisor are negative, subtract a negative
                 # shifted divisor from dividend.
                 with m.If((s_copy == Sign.SIGNED) & a_sign & n_sign):
                     m.d.sync += quotient.eq(quotient + C(1) * shift_amt)
                     m.d.sync += remainder.eq(remainder -
-                                             (self.inp.data.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
+                                             (self.inp.payload.d.as_signed() * C(1) * shift_amt).as_signed())  # noqa: E501
 
             with m.If(iters_left - 1 == 0):
                 m.d.sync += self.outp.valid.eq(1)
@@ -831,9 +826,3 @@ class _MagnitudeComparator(Elaboratable):
         m.d.comb += self.o.eq(abs(self.divisor) <= abs(self.dividend))
 
         return m
-
-
-if __name__ == "__main__":
-    from amaranth.back.verilog import convert
-
-    print(convert(MulticycleDiv(32)))

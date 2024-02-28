@@ -122,15 +122,15 @@ def multiplier_input_signature(width):
     -------
     :class:`~amaranth:amaranth.lib.wiring.Signature`
         :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following attributes:
+        following members:
 
-        .. attribute:: .data
+        .. attribute:: .payload
             :type: Out(Inputs)
             :noindex:
 
             Data input to multiplier.
 
-        .. attribute:: .rdy
+        .. attribute:: .ready
             :type: In(1)
             :noindex:
 
@@ -143,8 +143,8 @@ def multiplier_input_signature(width):
             When ``1``, indicates that multiplier data input is valid.
     """
     return Signature({
-        "data": Out(Inputs(width)),
-        "rdy": In(1),
+        "payload": Out(Inputs(width)),
+        "ready": In(1),
         "valid": Out(1)
     })
 
@@ -177,15 +177,15 @@ def multiplier_output_signature(width):
     -------
     :class:`~amaranth:amaranth.lib.wiring.Signature`
         :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following attributes:
+        following members:
 
-        .. attribute:: .data
+        .. attribute:: .payload
             :type: Out(Outputs)
             :noindex:
 
             Data output **from** multiplier.
 
-        .. attribute:: .rdy
+        .. attribute:: .ready
             :type: In(1)
             :noindex:
 
@@ -199,8 +199,8 @@ def multiplier_output_signature(width):
             When ``1``, indicates that multiplier output data input is valid.
     """
     return Signature({
-        "data": Out(Outputs(width)),
-        "rdy": In(1),
+        "payload": Out(Outputs(width)),
+        "ready": In(1),
         "valid": Out(1)
     })
 
@@ -214,21 +214,17 @@ class PipelinedMul(Component):
     implemented:
      
     * A multiply starts on the current cycle when both ``inp.valid`` and
-      ``inp.rdy`` are asserted.
+      ``inp.ready`` are asserted.
     * A multiply result is available when ``outp.valid`` is asserted. The
-      result is read/overwritten once a downstream core asserts ``outp.rdy``.
-    * ``inp.rdy`` de-asserts on any cycle where ``outp.valid`` is asserted
-      but ``outp.rdy`` is *not* asserted. This is a pipeline *stall*.
-
-    .. todo::
-
-        Update to Amaranth streams when available.
+      result is read/overwritten once a downstream core asserts ``outp.ready``.
+    * ``inp.ready`` de-asserts on any cycle where ``outp.valid`` is asserted
+      but ``outp.ready`` is *not* asserted. This is a pipeline *stall*.
     
     * Latency: Multiply Results for a given multiply will be available
       ``width`` clock cycles after the multiplier has seen those inputs,
       assuming no stalls.
        
-      If stalls occur (``outp.valid`` is asserted while ``outp.rdy`` is
+      If stalls occur (``outp.valid`` is asserted while ``outp.ready`` is
       unasserted), latency increases by the length of the stalls in clock
       cycles while the given multiply was in the pipeline.
     
@@ -395,8 +391,8 @@ class PipelinedMul(Component):
         pipeline_in = Signal(
             ArrayLayout(
                 StructLayout({
-                    "a": signed(self.inp.data.a.shape().width + 1),
-                    "b": unsigned(self.inp.data.b.shape().width),
+                    "a": signed(self.inp.payload.a.shape().width + 1),
+                    "b": unsigned(self.inp.payload.b.shape().width),
                     "s": Sign,
                     "v": unsigned(1)
                 }),
@@ -433,35 +429,36 @@ class PipelinedMul(Component):
         # If the output isn't valid, we can accept another multiply. If
         # the output _is_ valid, we can only accept accept another multiply
         # if the output is being read this cycle.
-        m.d.comb += self.inp.rdy.eq(self.outp.valid.implies(self.outp.rdy))
+        m.d.comb += self.inp.ready.eq(self.outp.valid.implies(self.outp.ready))
         m.d.sync += pipeline_in[0].v.eq(0)
 
-        with m.If(self.inp.rdy & self.inp.valid):
+        with m.If(self.inp.ready & self.inp.valid):
             m.d.sync += [
-                pipeline_in[0].s.eq(self.inp.data.sign),
+                pipeline_in[0].s.eq(self.inp.payload.sign),
                 pipeline_in[0].v.eq(1)
             ]
 
             # If the multiplier is negative, and both inputs are signed,
             # we need to twos-complement the inputs. Since the inputs are
             # otherwise unmodified, we only need do this in the input stage.
-            with m.If((self.inp.data.sign == Sign.SIGNED) &
-                      self.inp.data.b.as_signed()[-1]):
+            with m.If((self.inp.payload.sign == Sign.SIGNED) &
+                      self.inp.payload.b.as_signed()[-1]):
                 m.d.sync += [
                     # If multiplier is negative, then we need to _subtract_ the
                     # multiplicand from 0... which is the same as adding the
                     # twos complement! This also works if the multiplicand is
                     # negative!
-                    pipeline_in[0].a.eq(-self.inp.data.a.as_signed()),
+                    pipeline_in[0].a.eq(-self.inp.payload.a.as_signed()),
                     # In twos complement, each bit doesn't directly correspond
                     # to whether an add should be suppressed or not; the twos
                     # complement of the value does! This also works for the
                     # negative-most multiplier, since we don't care about
                     # signed-ness when querying each individual bit.
-                    pipeline_in[0].b.eq(-self.inp.data.b.as_signed())
+                    pipeline_in[0].b.eq(-self.inp.payload.b.as_signed())
                 ]
-                m.d.sync += pipeline_out[0].eq(-self.inp.data.a.as_signed() *
-                                               (-self.inp.data.b.as_signed())[0])
+                m.d.sync += pipeline_out[0].eq(
+                    -self.inp.payload.a.as_signed() *
+                    (-self.inp.payload.b.as_signed())[0])
 
             # If multiplier is positive, then pass through the multiplicand
             # and multiplier unchanged- zero-extend if unsigned, sign-extend if
@@ -473,20 +470,20 @@ class PipelinedMul(Component):
             # together.
             with m.Else():
                 # Quash sign-extension of "a" if unsigned multiply.
-                with m.If(self.inp.data.sign == Sign.UNSIGNED):
+                with m.If(self.inp.payload.sign == Sign.UNSIGNED):
                     m.d.sync += [
-                        pipeline_in[0].a.eq(self.inp.data.a),
-                        pipeline_in[0].b.eq(self.inp.data.b)
+                        pipeline_in[0].a.eq(self.inp.payload.a),
+                        pipeline_in[0].b.eq(self.inp.payload.b)
                     ]
-                    m.d.sync += pipeline_out[0].eq(self.inp.data.a *
-                                                   self.inp.data.b[0])
+                    m.d.sync += pipeline_out[0].eq(self.inp.payload.a *
+                                                   self.inp.payload.b[0])
                 with m.Else():
                     m.d.sync += [
-                        pipeline_in[0].a.eq(self.inp.data.a.as_signed()),
-                        pipeline_in[0].b.eq(self.inp.data.b)
+                        pipeline_in[0].a.eq(self.inp.payload.a.as_signed()),
+                        pipeline_in[0].b.eq(self.inp.payload.b)
                     ]
-                    m.d.sync += pipeline_out[0].eq(self.inp.data.a.as_signed() *  # noqa: E501
-                                                   self.inp.data.b[0])
+                    m.d.sync += pipeline_out[0].eq(self.inp.payload.a.as_signed() *  # noqa: E501
+                                                   self.inp.payload.b[0])
 
         # With the above out of the way, the main multiplying stages should
         # be identical regardless of signedness (because adding shift copies
@@ -496,7 +493,7 @@ class PipelinedMul(Component):
             if self.debug:
                 probe_pipeline_stage(i)
 
-            with m.If(self.inp.rdy):
+            with m.If(self.inp.ready):
                 # This relies on the optimizer realizing we're doing a mul by a
                 # 1 bit number (pipeline_in[i - 1].b[i]) with leading zeros.
                 a = pipeline_in[i - 1].a
@@ -510,8 +507,8 @@ class PipelinedMul(Component):
                     pipeline_out[i].eq(((a * b) << i) + acc)
                 ]
 
-        m.d.comb += self.outp.data.o.eq(pipeline_out[self.width - 1])
-        m.d.comb += self.outp.data.sign.eq(pipeline_in[self.width - 1].s)
+        m.d.comb += self.outp.payload.o.eq(pipeline_out[self.width - 1])
+        m.d.comb += self.outp.payload.sign.eq(pipeline_in[self.width - 1].s)
         m.d.comb += self.outp.valid.eq(pipeline_in[self.width - 1].v)
 
         return m
@@ -524,16 +521,12 @@ class MulticycleMul(Component):
     multiplication.
 
     * A multiply starts on the current cycle when both ``inp.valid`` and
-      ``inp.rdy`` are asserted.
+      ``inp.ready`` are asserted.
     * A multiply result is available when ``outp.valid`` is asserted. The
-      result is read/overwritten once a downstream core asserts ``outp.rdy``.
-
-    .. todo::
-
-        Update to Amaranth streams when available.
+      result is read/overwritten once a downstream core asserts ``outp.ready``.
 
     * Latency: Multiply Results for a will be available ``width`` clock cycles
-      after assertion of both ``inp.valid`` and ``inp.rdy``.
+      after assertion of both ``inp.valid`` and ``inp.ready``.
 
     * Throughput: One multiply maximum is finished every ``width`` clock
       cycles.
@@ -595,7 +588,7 @@ class MulticycleMul(Component):
         # The implementation of MulticycleMul is very similar to
         # PipelinedMul, except for the lack of pipeline stages. See that
         # class for detailed notes.
-        addend = Signal(signed(self.inp.data.a.shape().width + 1))
+        addend = Signal(signed(self.inp.payload.a.shape().width + 1))
         s_copy = Signal(Sign)
 
         # b and output can share a backing store; every cycle, the
@@ -607,67 +600,67 @@ class MulticycleMul(Component):
         # being shifted right before adding, as long as the backing store
         # is wide enough.
         intermediate = Signal(signed(2*self.width + 1))
-        iters_left = Signal(range(self.inp.data.b.shape().width))
+        iters_left = Signal(range(self.inp.payload.b.shape().width))
         in_progress = Signal()
 
-        m.d.comb += self.inp.rdy.eq((self.outp.rdy & self.outp.valid) |
-                                    ~in_progress)
+        m.d.comb += self.inp.ready.eq((self.outp.ready & self.outp.valid) |
+                                      ~in_progress)
         m.d.comb += in_progress.eq(iters_left != 0)
 
-        with m.If(self.outp.valid & self.outp.rdy):
+        with m.If(self.outp.valid & self.outp.ready):
             m.d.sync += self.outp.valid.eq(0)
 
-        with m.If(self.inp.rdy & self.inp.valid):
+        with m.If(self.inp.ready & self.inp.valid):
             m.d.sync += [
-                s_copy.eq(self.inp.data.sign),
-                iters_left.eq(self.inp.data.b.shape().width - 1)
+                s_copy.eq(self.inp.payload.sign),
+                iters_left.eq(self.inp.payload.b.shape().width - 1)
             ]
 
-            with m.If((self.inp.data.sign == Sign.SIGNED) &
-                      self.inp.data.b.as_signed()[-1]):
+            with m.If((self.inp.payload.sign == Sign.SIGNED) &
+                      self.inp.payload.b.as_signed()[-1]):
                 # We've already done the first calculation so premptively
                 # shift when initializing the backing store.
-                pprod = (-self.inp.data.a.as_signed() *
-                         (-self.inp.data.b.as_signed())[0])
-                oshift = len(self.inp.data.b)
+                pprod = (-self.inp.payload.a.as_signed() *
+                         (-self.inp.payload.b.as_signed())[0])
+                oshift = len(self.inp.payload.b)
 
                 m.d.sync += [
-                    addend.eq(-self.inp.data.a.as_signed()),
-                    # Load-bearing parens... (-self.inp.data.b) will increase
-                    # width by one to accomodate negating the most negative
-                    # value. We don't actually want this because it'll
+                    addend.eq(-self.inp.payload.a.as_signed()),
+                    # Load-bearing parens... (-self.inp.payload.b) will
+                    # increase width by one to accomodate negating the most
+                    # negative value. We don't actually want this because it'll
                     # disturb the backing store for the output, so suppress
-                    # by using (-self.inp.data.b)[:-1].
+                    # by using (-self.inp.payload.b)[:-1].
                     intermediate.eq(((pprod << oshift) |
-                                     (-self.inp.data.b)[:-1]) >> 1),
+                                     (-self.inp.payload.b)[:-1]) >> 1),
                 ]
             with m.Else():
                 # Quash sign-extension of "a" if unsigned multiply.
-                with m.If(self.inp.data.sign == Sign.UNSIGNED):
-                    pprod = (self.inp.data.a * self.inp.data.b[0])
-                    oshift = len(self.inp.data.b)
+                with m.If(self.inp.payload.sign == Sign.UNSIGNED):
+                    pprod = (self.inp.payload.a * self.inp.payload.b[0])
+                    oshift = len(self.inp.payload.b)
 
                     m.d.sync += [
-                        addend.eq(self.inp.data.a),
+                        addend.eq(self.inp.payload.a),
                         intermediate.eq(((pprod << oshift) |
-                                         self.inp.data.b) >> 1),
+                                         self.inp.payload.b) >> 1),
                     ]
                 with m.Else():
-                    pprod = (self.inp.data.a.as_signed() *
-                             self.inp.data.b[0])
-                    oshift = len(self.inp.data.b)
+                    pprod = (self.inp.payload.a.as_signed() *
+                             self.inp.payload.b[0])
+                    oshift = len(self.inp.payload.b)
 
                     m.d.sync += [
-                        addend.eq(self.inp.data.a.as_signed()),
+                        addend.eq(self.inp.payload.a.as_signed()),
                         intermediate.eq(((pprod << oshift) |
-                                         self.inp.data.b) >> 1),
+                                         self.inp.payload.b) >> 1),
                     ]
 
         with m.If(iters_left != 0):
             m.d.sync += iters_left.eq(iters_left - 1)
 
             pprod = (addend * intermediate[0])
-            oshift = len(self.inp.data.b)
+            oshift = len(self.inp.payload.b)
 
             m.d.sync += \
                 intermediate.eq((intermediate + (pprod << oshift)) >> 1)
@@ -676,8 +669,8 @@ class MulticycleMul(Component):
                 m.d.sync += self.outp.valid.eq(1)
 
         m.d.comb += [
-            self.outp.data.o.eq(intermediate),
-            self.outp.data.sign.eq(s_copy),
+            self.outp.payload.o.eq(intermediate),
+            self.outp.payload.sign.eq(s_copy),
         ]
 
         return m
