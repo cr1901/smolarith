@@ -40,9 +40,10 @@ jobs:
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
+    # https://github.com/pypa/build/issues/745
     - name: Build package
       run: |
-        pip install build
+        pip install build==1.0.3 
         python -m build
     - name: Verify package metadata
       run: |
