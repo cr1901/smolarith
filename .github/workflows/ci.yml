@@ -2,7 +2,6 @@ on: [push, pull_request, merge_group]
 
 name: CI
 jobs:
-
   test:
     runs-on: ubuntu-latest
     steps:
@@ -15,6 +14,10 @@ jobs:
     - name: Install dependencies
       run: |
         pdm install --dev
+    - name: Lint
+      if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
+      run: |
+        pdm run lint
     - name: Run tests
       run: |
         pdm run pytest
@@ -23,3 +26,29 @@ jobs:
       continue-on-error: true
       run: |
         pdm run doc-linkck
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: publish
+      url: https://pypi.org/p/smolarith
+    permissions:
+      id-token: write
+    steps:
+    - name: Check out source code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Build package
+      run: |
+        pip install build
+        python -m build
+    - name: Verify package metadata
+      run: |
+        pip install twine
+        twine check dist/*
+    - name: Publish package to PyPI
+      if: ${{ github.event_name == 'push' && contains(github.ref, 'refs/tags/') }}
+      uses: pypa/gh-action-pypi-publish@release/v1
+    
