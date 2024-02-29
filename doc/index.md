@@ -20,6 +20,7 @@ Usage <usage>
 API <api>
 Implementation <impl>
 
+CHANGELOG <changes>
 TODO List <todo>
 ```
 
