@@ -1,7 +1,7 @@
 [project]
 name = "smolarith"
 version = "0.1.0"
-description = ""
+description = "Soft-core arithmetic components written in Amaranth HDL"
 authors = [
     {name = "William D. Jones", email = "thor0505@comcast.net"},
 ]
@@ -11,6 +11,22 @@ dependencies = [
 requires-python = ">=3.8"
 readme = "README.md"
 license = {text = "MIT"}
+keywords = ["multiplication", "division", "HDL", "cpu"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Telecommunications Industry",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Other Audience",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.8",
+]
+
+[project.urls]
+documentation = "https://smolarith.readthedocs.io"
+repository = "https://github.com/cr1901/smolarith"
+
 
 [build-system]
 requires = ["pdm-backend"]

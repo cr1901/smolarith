@@ -151,7 +151,7 @@ def divider_output_signature(width):
 
               .. doctest::
 
-                  >>> from smolarith.mul import divider_output_signature
+                  >>> from smolarith.div import divider_output_signature
                   >>> from amaranth.lib.wiring import Signature, In
                   >>> my_receiver_sig = Signature({
                   ...     "inp": In(divider_output_signature(width=8))

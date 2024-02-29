@@ -227,11 +227,98 @@ This technique is called non-restoring division, thanks to the lack of
 restoring step to bring {math}`S_j` positive _except possibly at the final
 step_.
 
+Why would you ever go through all this trouble? Well, here's a benchmark...
 
-```{todo}
-Discuss long division implementation vs non-restoring division, and why you
-should use the latter in almost all cases.
+```powershell
+PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> pdm run
+No command is given, default to the Python REPL.
+Python 3.11.8 (main, Feb 13 2024, 07:18:52)  [GCC 13.2.0 64 bit (AMD64)] on win32
+Type "help", "copyright", "credits" or "license" for more information.
+>>> from amaranth.back.verilog import convert
+>>> from smolarith.div import MulticycleDiv, LongDivider
+>>> with open("nrdiv.v", "w") as fp:
+...     fp.write(convert(MulticycleDiv(32)))
+...
+53043
+>>>
+>>> with open("longdiv.v", "w") as fp:
+...     fp.write(convert(LongDivider(32)))
+...
+76614
+>>> exit()
+PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -QTp 'tee -q synth_ice40; stat' longdiv.v
+
+-- Parsing `longdiv.v' using frontend ` -vlog2k' --
+
+1. Executing Verilog-2005 frontend: longdiv.v
+Parsing Verilog input from `longdiv.v' to AST representation.
+Storing AST representation for module `$abstract\top'.
+Storing AST representation for module `$abstract\top.mag'.
+Successfully finished Verilog frontend.
+
+-- Running command `tee -q synth_ice40; stat' --
+
+3. Printing statistics.
+
+=== top ===
+
+   Number of wires:               2576
+   Number of wire bits:          12802
+   Number of public wire bits:   12802
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               4146
+     $scopeinfo                      1
+     SB_CARRY                      547
+     SB_DFFESR                       9
+     SB_DFFSR                       97
+     SB_LUT4                      3492
+
+PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -QTp 'tee -q synth_ice40; stat' nrdiv.v
+
+-- Parsing `nrdiv.v' using frontend ` -vlog2k' --
+
+1. Executing Verilog-2005 frontend: nrdiv.v
+Parsing Verilog input from `nrdiv.v' to AST representation.
+Storing AST representation for module `$abstract\top'.
+Storing AST representation for module `$abstract\top.from_u'.
+Storing AST representation for module `$abstract\top.nrdiv'.
+Storing AST representation for module `$abstract\top.to_u'.
+Successfully finished Verilog frontend.
+
+-- Running command `tee -q synth_ice40; stat' --
+
+3. Printing statistics.
+
+=== top ===
+
+   Number of wires:                894
+   Number of wire bits:           2865
+   Number of public wires:         894
+   Number of public wire bits:    2865
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               1162
+     $scopeinfo                      3
+     SB_CARRY                      251
+     SB_DFFESR                     177
+     SB_DFFSR                       34
+     SB_LUT4                       697
+
+PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -V
+Yosys 0.38+92 (git sha1 84116c9a3, sccache x86_64-w64-mingw32-g++ 13.2.0 -Os)
+PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith>
 ```
+
+While I haven't spent much effort optimizing either {class}`~smolarith.div.LongDivider`
+or {class}`~smolarith.div.MulticycleDiv`, it's clear that the latter non-restoring
+implementation wins on LUT usage alone, with a modest increase in storage
+elements (FFs). The extra storage elements should also help with timing
+closure. So _without further testing_ for now, I'd recommend using
+{class}`~smolarith.div.MulticycleDi` for your division needs until I can
+investigate.
 
 (signedness)=
 ### Truncating Division And Signedness
