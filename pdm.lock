@@ -2,10 +2,10 @@
 # It is not intended for manual editing.
 
 [metadata]
-groups = ["default", "dev", "doc", "lint"]
+groups = ["default", "dev", "doc", "lint", "builtin-yosys"]
 strategy = ["cross_platform"]
 lock_version = "4.4"
-content_hash = "sha256:e0760facf6fa24679a2e871e8e74bba35d78948912b0518def8cd04c01f4c9de"
+content_hash = "sha256:66042f5253ea9dd072cbb0f153f7553329c90d7a1f5c7737b030042bef8d277e"
 
 [[package]]
 name = "alabaster"
@@ -19,7 +19,7 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.4.2"
+version = "0.4.3"
 requires_python = "~=3.8"
 summary = "Amaranth hardware definition language"
 dependencies = [
@@ -28,7 +28,33 @@ dependencies = [
     "pyvcd<0.5,>=0.2.2",
 ]
 files = [
-    {file = "amaranth-0.4.2-py3-none-any.whl", hash = "sha256:1f0a6c916830aab6010d75eb28ce52e5d3929d21446992999a73649705f2547d"},
+    {file = "amaranth-0.4.3-py3-none-any.whl", hash = "sha256:9d278f68673fa341a1327b68566c2c4bf9955b73e50a571fcb39c1f2f3524e3f"},
+]
+
+[[package]]
+name = "amaranth-yosys"
+version = "0.38.0.0.post87"
+summary = "Specialized WebAssembly build of Yosys used by Amaranth HDL"
+dependencies = [
+    "importlib-resources>=1.4; python_version < \"3.9\"",
+    "wasmtime<19,>=1",
+]
+files = [
+    {file = "amaranth_yosys-0.38.0.0.post87-py3-none-any.whl", hash = "sha256:8caad77f1832390f6ebe0a0945ed1f40710777ed8668780c54df3a6de29bccaa"},
+]
+
+[[package]]
+name = "amaranth"
+version = "0.4.3"
+extras = ["builtin-yosys"]
+requires_python = "~=3.8"
+summary = "Amaranth hardware definition language"
+dependencies = [
+    "amaranth-yosys>=0.38",
+    "amaranth==0.4.3",
+]
+files = [
+    {file = "amaranth-0.4.3-py3-none-any.whl", hash = "sha256:9d278f68673fa341a1327b68566c2c4bf9955b73e50a571fcb39c1f2f3524e3f"},
 ]
 
 [[package]]
@@ -818,6 +844,20 @@ summary = "HTTP library with thread-safe connection pooling, file post, and more
 files = [
     {file = "urllib3-2.2.0-py3-none-any.whl", hash = "sha256:ce3711610ddce217e6d113a2732fafad960a03fd0318c91faa79481e35c11224"},
     {file = "urllib3-2.2.0.tar.gz", hash = "sha256:051d961ad0c62a94e50ecf1af379c3aba230c66c710493493560c0c223c49f20"},
+]
+
+[[package]]
+name = "wasmtime"
+version = "18.0.0"
+requires_python = ">=3.8"
+summary = "A WebAssembly runtime powered by Wasmtime"
+files = [
+    {file = "wasmtime-18.0.0-py3-none-any.whl", hash = "sha256:0bdb0aa5f742d457efe39e1c494a26b8c26718aea90aeae15680ff2bae9ff06e"},
+    {file = "wasmtime-18.0.0-py3-none-macosx_10_13_x86_64.whl", hash = "sha256:543435f24dd951ac9145481a2f61c9416bea149c4879ed174af9b0d1bae1d5e8"},
+    {file = "wasmtime-18.0.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:af6d54470b3dacc3607d554e356b00cc6ebc002793f3db4fdc60a2cbe3af9694"},
+    {file = "wasmtime-18.0.0-py3-none-manylinux1_x86_64.whl", hash = "sha256:b7b3d5a152b572df48c89cdfd14ae53a03eacaeb5476661470640eade98829b1"},
+    {file = "wasmtime-18.0.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:d22e1ac6804e5175b8c98976e93e62dbd097d87d18ab2b306a50560a336680e3"},
+    {file = "wasmtime-18.0.0-py3-none-win_amd64.whl", hash = "sha256:c76b1d97dae06afadc6e960d5ab9626d88404f779da038347da7cf66cef4e74e"},
 ]
 
 [[package]]

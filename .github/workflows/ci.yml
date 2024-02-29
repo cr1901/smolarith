@@ -20,8 +20,8 @@ jobs:
         pdm run lint
     - name: Run tests
       run: |
-        pdm run pytest
         pdm run doc-test
+        pdm run pytest
     - name: Check links
       continue-on-error: true
       run: |

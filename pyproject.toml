@@ -68,6 +68,9 @@ lint = [
     "ruff>=0.2.2",
     "pydoclint[flake8]>=0.4.1",
 ]
+builtin-yosys = [
+    "amaranth[builtin-yosys]>=0.4.1",
+]
 
 [tool.pdm.scripts]
 test = "pytest"
