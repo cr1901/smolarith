@@ -229,23 +229,28 @@ step_.
 
 Why would you ever go through all this trouble? Well, here's a benchmark...
 
+<!-- WARNING: There are leading zero-width spaces in the below code block for
+every line starting with ">>>" or "...". This works around a pytest-sphinx
+bug (?) which treats them as part of a doctest anyway. This will fail with
+UNEXPECTED EXCEPTION: SystemExit(None) due to the exit() line, which was copied
+and pasted directly from my shell session :D. -->
 ```powershell
 PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> pdm run
 No command is given, default to the Python REPL.
 Python 3.11.8 (main, Feb 13 2024, 07:18:52)  [GCC 13.2.0 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
->>> from amaranth.back.verilog import convert
->>> from smolarith.div import MulticycleDiv, LongDivider
->>> with open("nrdiv.v", "w") as fp:
-...     fp.write(convert(MulticycleDiv(32)))
-...
-53043
->>>
->>> with open("longdiv.v", "w") as fp:
-...     fp.write(convert(LongDivider(32)))
-...
-76614
->>> exit()
+​>>> from amaranth.back.verilog import convert
+​>>> from smolarith.div import MulticycleDiv, LongDivider
+​>>> with open("nrdiv.v", "w") as fp:
+​...     fp.write(convert(MulticycleDiv(32)))
+​...
+​53043
+​>>>
+​>>> with open("longdiv.v", "w") as fp:
+​...     fp.write(convert(LongDivider(32)))
+​...
+​76614
+​>>> exit()
 PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -QTp 'tee -q synth_ice40; stat' longdiv.v
 
 -- Parsing `longdiv.v' using frontend ` -vlog2k' --
@@ -317,7 +322,7 @@ or {class}`~smolarith.div.MulticycleDiv`, it's clear that the latter non-restori
 implementation wins on LUT usage alone, with a modest increase in storage
 elements (FFs). The extra storage elements should also help with timing
 closure. So _without further testing_ for now, I'd recommend using
-{class}`~smolarith.div.MulticycleDi` for your division needs until I can
+{class}`~smolarith.div.MulticycleDiv` for your division needs until I can
 investigate.
 
 (signedness)=

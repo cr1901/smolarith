@@ -146,8 +146,6 @@ if __name__ == "__main__":
         sim(c2f=c2f, start_c=start_c, end_c=end_c, gtkw=False)
     else:
         print(convert(c2f))
-
->>> sim()
 ```
 
 To run this code, copy and paste the above into a file called `c2f.py` at the
