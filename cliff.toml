@@ -43,7 +43,6 @@ footer = """
 
 {% for release in releases -%}
     {% if release.version -%}
-        release.version
         {% if release.previous.version -%}
             [{{ release.version | trim_start_matches(pat="v") }}]: \
                 {{ self::remote_url() }}/compare/{{ release.previous.version }}..{{ release.version }}

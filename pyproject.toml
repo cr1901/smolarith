@@ -71,12 +71,20 @@ lint = [
 builtin-yosys = [
     "amaranth[builtin-yosys]>=0.4.1",
 ]
+bench = [
+    "doit>=0.36.0",
+]
 
 [tool.pdm.scripts]
 test = "pytest"
 lint = { composite = ["ruff check", "flake8", "doc-test"] }
+bench = "doit stats"
 doc = "sphinx-build doc/ doc/_build/"
 # FIXME: pytest-sphinx doesn't catch all of these. Remove when it does.
 doc-test = "sphinx-build -b doctest doc/ doc/_build"
 doc-linkck = "sphinx-build doc/ doc/_linkcheck/ -b linkcheck"
 doc-auto = "sphinx-autobuild doc/ doc/_build/ --watch src/smolarith"
+
+[tool.doit.tasks.find_module]
+module = "smolarith.div:MulticycleDiv"
+width = 32
