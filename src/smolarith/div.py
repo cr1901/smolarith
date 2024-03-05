@@ -239,7 +239,7 @@ class MulticycleDiv(Component):
       :ref:`Python implementation <nrdiv-py>` shown in :ref:`impl`.
 
     * For an :math:`n`-bit divide, this divider requires approximately
-      :math:`O(6*n)` storage elements (to store intermediate results).
+      :math:`O(8*n)` storage elements (to store intermediate results).
 
     * Internally, the divider converts its operands from signed to unsigned
       if necessary, performs the division, and the converts back from unsigned
@@ -462,10 +462,12 @@ class _NonRestoringDiv(Component):
         # Need extra bit because we need to subtract up to 2^width, which
         # should remain negative.
         intermediate = Signal(2*self.width + 1)
-        iters_left = Signal(range(self.inp.payload.n.shape().width))
+        iters_left = Signal(range(self.inp.payload.n.shape().width + 1))
         in_progress = Signal()
         restore_step = Signal()
         s_copy = Signal(Sign)
+        d_copy = Signal(self.inp.payload.d.shape())
+        r = Signal(self.width)
 
         m.d.comb += self.inp.ready.eq((self.outp.ready & self.outp.valid) |
                                       ~in_progress)
@@ -477,7 +479,8 @@ class _NonRestoringDiv(Component):
         with m.If(self.inp.ready & self.inp.valid):
             m.d.sync += [
                 s_copy.eq(self.inp.payload.sign),
-                iters_left.eq(self.inp.payload.n.shape().width - 1)
+                d_copy.eq(self.inp.payload.d),
+                iters_left.eq(self.inp.payload.n.shape().width)
             ]
 
             # On initial iter, we'll never be below 0.
@@ -485,9 +488,7 @@ class _NonRestoringDiv(Component):
             # into final position.
             # q[-1] = 1, encoded as 1, encoded in bottom half, to be shifted
             # into final position.
-            m.d.sync += intermediate.eq((self.inp.payload.n << 1) -
-                                        (self.inp.payload.d << self.width) |
-                                        1)
+            m.d.sync += intermediate.eq(self.inp.payload.n)
 
         with m.If(in_progress & ~restore_step):
             # State Control
@@ -501,12 +502,12 @@ class _NonRestoringDiv(Component):
                 # S = (S << 1) + D, encoded in top half.
                 # q = -1, encoded as 0, encoded in bottom half.
                 m.d.sync += intermediate.eq(((intermediate << 1) +
-                                            (self.inp.payload.d << self.width)))  # noqa: E501
+                                            (d_copy << self.width)))  # noqa: E501
             with m.Else():
                 # S = (S << 1) - D, encoded in top half.
                 # q = 1, encoded as 1, encoded in bottom half.
                 m.d.sync += intermediate.eq(((intermediate << 1) -
-                                            (self.inp.payload.d << self.width)) | 1)  # noqa: E501
+                                            (d_copy << self.width)) | 1)  # noqa: E501
 
 
         with m.If(restore_step):
@@ -518,8 +519,12 @@ class _NonRestoringDiv(Component):
             # Extract encoded negative powers of two and then subtract as if
             # they were positive powers of two (so no twos complement
             # conversion needed).
-            m.d.sync += intermediate[:self.width].eq(
-                intermediate[:self.width] - ~intermediate[:self.width])
+            # Better LUT usage if "r" has its own register.
+            m.d.sync += [
+                intermediate[:self.width].eq(
+                    intermediate[:self.width] - ~intermediate[:self.width]),
+                r.eq(intermediate[self.width:])
+            ]
 
             with m.If(intermediate[-1]):
                 # S += D
@@ -529,13 +534,12 @@ class _NonRestoringDiv(Component):
                         intermediate[:self.width] -
                         ~intermediate[:self.width] -
                         1),
-                    intermediate[self.width:].eq(
-                        intermediate[self.width:] + self.inp.payload.d)
+                    r.eq(intermediate[self.width:] + d_copy)
                 ]
 
         m.d.comb += [
             self.outp.payload.q.eq(intermediate[:self.width]),
-            self.outp.payload.r.eq(intermediate[self.width:]),
+            self.outp.payload.r.eq(r),
             self.outp.payload.sign.eq(s_copy)
         ]
 
