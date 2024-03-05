@@ -79,6 +79,8 @@ bench = [
 test = "pytest"
 lint = { composite = ["ruff check", "flake8", "doc-test"] }
 bench = "doit stats"
+emit = "doit -r error-only emit_verilog"
+
 doc = "sphinx-build doc/ doc/_build/"
 # FIXME: pytest-sphinx doesn't catch all of these. Remove when it does.
 doc-test = "sphinx-build -b doctest doc/ doc/_build"

@@ -14,8 +14,8 @@ ICE40_SCRIPT = Template("""
 ${quiet} read_verilog << verilog
 ${verilog_text}
 verilog
-${quiet} synth_ice40
-stat -json
+${quiet} synth_ice40 -run ${from_}:${to}
+${emit}
 """)
 
 
@@ -31,8 +31,9 @@ def find_module_create_verilog(module, width):
     return { "verilog": v }
 
 
-def run_yosys(v_file):
-    stdin = ICE40_SCRIPT.substitute(verilog_text=v_file, quiet="tee -q")
+def run_yosys(v_file, from_="begin", to="blif", emit="stat -json"):
+    stdin = ICE40_SCRIPT.substitute(verilog_text=v_file, quiet="tee -q",
+                                    from_=from_, to=to, emit=emit)
     p = subprocess.Popen(["yosys", "-Q", "-T", "-"],
                          stdin=subprocess.PIPE,
                          stdout=subprocess.PIPE,
@@ -44,6 +45,33 @@ def run_yosys(v_file):
         raise subprocess.SubprocessError
     
     return { "stdout": stdout }
+
+
+def print_verilog(v_file, preprocess="none"):
+    if preprocess in ("none",):
+        # No point in invoking yosys for a no-op.
+        print(v_file)
+    else:
+        if preprocess == "coarse":
+            to = "map_gates"
+        elif preprocess == "fine":
+            to = "map_ffs"
+        else:
+            to = ""
+
+        raw_out = run_yosys(v_file, to=to,
+                            emit="tee -q write_verilog -")["stdout"]
+        
+        for i, line in enumerate(StringIO(raw_out).readlines()):
+            if line[0:2] == "/*":
+                break
+
+        # Restart read since we can't really put back a line...
+        stdout = StringIO(raw_out)
+        stdout.readlines(i)  # Drain yosys stdout.
+
+        rest = stdout.read()
+        print(rest)
 
 
 def print_stats(raw_stats):
@@ -78,6 +106,28 @@ def task_find_module():
             }
         ],
         "actions": [(find_module_create_verilog,)],
+    }
+
+
+def task_emit_verilog():
+    return {
+        "params": [
+            {
+                "name": "preprocess",
+                "short": "p",
+                "type": str,
+                "choices": (("none", ""),
+                            ("coarse", "to map_gates"),
+                            ("fine", "to map_ffs"),
+                            ("all", "")),
+                "default": "none",
+                "help": "yosys preprocessing out Amaranth output"
+            },
+        ],
+        "uptodate": [False],
+        "actions": [(print_verilog, (), {})],
+        "getargs": { "v_file": ("find_module", "verilog") },
+        "verbosity": 2
     }
 
 
