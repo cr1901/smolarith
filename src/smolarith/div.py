@@ -205,6 +205,23 @@ class _Quadrant(StructLayout):
         })
 
 
+class _Negate(Component):
+    def __init__(self, width=8):  # noqa: DOC
+        self.width = width
+        super().__init__({
+            "inp": In(self.width),
+            "outp": Out(self.width)
+        })
+
+    
+    def elaborate(self, plat):
+        m = Module()
+
+        m.d.comb += self.outp.eq((-self.inp.as_signed())[:-1])
+
+        return m
+
+
 class MulticycleDiv(Component):
     # FIXME: I can't be .. _latency label to work, even with :ref:`latency`...
     # always "undefined label"... huh?!
@@ -299,6 +316,8 @@ class MulticycleDiv(Component):
     def __init__(self, width=8):
         self.width = width
         self.nrdiv = _NonRestoringDiv(width)
+        self.negate_nq = _Negate(width)
+        self.negate_dr = _Negate(width)
 
         super().__init__({
             "inp": In(divider_input_signature(self.width)),
@@ -309,16 +328,25 @@ class MulticycleDiv(Component):
         m = Module()
 
         m.submodules.nrdiv = self.nrdiv
+        # Time-division multiplex negation units... in a multicycle div, only
+        # n/d or q/r need to be negated at once.
+        m.submodules.negate_nq = self.negate_nq
+        m.submodules.negate_dr = self.negate_dr
 
         quad = Signal(_Quadrant())
         div_inputs = Signal(Inputs(self.width))
 
         m.d.comb += self.nrdiv.inp.payload.eq(div_inputs)
 
-        with m.FSM() as fsm:
+        with m.FSM():
             with m.State("IDLE"):
-                m.d.comb += self.inp.ready.eq(1)
+                m.d.comb += [
+                    self.inp.ready.eq(1),
+                    self.negate_nq.inp.eq(self.inp.payload.n),
+                    self.negate_dr.inp.eq(self.inp.payload.d)
+                ]
 
+                m.d.comb += self.inp.ready.eq(1)
                 with m.If(self.inp.valid):
                     m.next = "DIVIDE_IN"
                     
@@ -338,11 +366,9 @@ class MulticycleDiv(Component):
                     with m.If(self.inp.payload.sign == Sign.SIGNED):
                         with m.If(self.inp.payload.n[-1] &
                                   (self.inp.payload.d != 0)):
-                            m.d.sync += div_inputs.n.eq(
-                                (-self.inp.payload.n.as_signed())[:-1])
+                            m.d.sync += div_inputs.n.eq(self.negate_nq.outp)
                         with m.If(self.inp.payload.d[-1]):
-                            m.d.sync += div_inputs.d.eq(
-                                (-self.inp.payload.d.as_signed())[:-1])
+                            m.d.sync += div_inputs.d.eq(self.negate_dr.outp)
 
             with m.State("DIVIDE_IN"):
                 m.d.comb += self.nrdiv.inp.valid.eq(1)
@@ -351,7 +377,11 @@ class MulticycleDiv(Component):
                     m.next = "DIVIDE_LOOP"
 
             with m.State("DIVIDE_LOOP"):
-                m.d.comb += self.nrdiv.outp.ready.eq(1)
+                m.d.comb += [
+                    self.nrdiv.outp.ready.eq(1),
+                    self.negate_nq.inp.eq(self.nrdiv.outp.payload.q),
+                    self.negate_dr.inp.eq(self.nrdiv.outp.payload.r)
+                ]
 
                 with m.If(self.nrdiv.outp.valid):
                     m.next = "DIVIDE_OUT"
@@ -363,19 +393,17 @@ class MulticycleDiv(Component):
                     with m.If((div_inputs.sign == Sign.SIGNED) &
                               quad.n & ~quad.d):
                         m.d.sync += [
-                            self.outp.payload.q.eq((-self.nrdiv.outp.payload.q.as_signed())[:-1]),
-                            self.outp.payload.r.eq((-self.nrdiv.outp.payload.r.as_signed())[:-1])
+                            self.outp.payload.q.eq(self.negate_nq.outp),
+                            self.outp.payload.r.eq(self.negate_dr.outp)
                         ]
 
                     with m.If((div_inputs.sign == Sign.SIGNED) &
                               ~quad.n & quad.d):
-                        m.d.sync += self.outp.payload.q.eq(
-                            (-self.nrdiv.outp.payload.q.as_signed())[:-1])
+                        m.d.sync += self.outp.payload.q.eq(self.negate_nq.outp)
                         
                     with m.If((div_inputs.sign == Sign.SIGNED) &
                               quad.n & quad.d):
-                        m.d.sync += self.outp.payload.r.eq(
-                            (-self.nrdiv.outp.payload.r.as_signed())[:-1])
+                        m.d.sync += self.outp.payload.r.eq(self.negate_dr.outp)
                         
             with m.State("DIVIDE_OUT"):
                 m.d.comb += self.outp.valid.eq(1)
