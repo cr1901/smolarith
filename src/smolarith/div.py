@@ -223,6 +223,15 @@ class _Negate(Component):
 
 
 class Impl(Enum):
+    """Indicate the division algorithm to use inside a dividing component.
+
+    * ``RESTORING``: Use :ref:`restoring division <derive-res>` for the
+      internal divider. *This is a good default*.
+
+    * ``NON_RESTORING``: Use :ref:`non-restoring division <derive-nr>` for the
+      internal divider.
+    """
+
     RESTORING = auto()
     NON_RESTORING = auto()
 
@@ -230,9 +239,10 @@ class Impl(Enum):
 class MulticycleDiv(Component):
     # FIXME: I can't be .. _latency label to work, even with :ref:`latency`...
     # always "undefined label"... huh?!
-    r"""Non-restoring divider soft-core.
+    r"""Restoring/Non-restoring divider soft-core.
 
-    This divider core is a gateware implementation of
+    This divider core is a gateware implementation of 
+    :ref:`restoring division <derive-res>` or
     :ref:`non-restoring division <derive-nr>`. It works for both signed and
     unsigned divides, and should be preferred to :class:`LongDivider` in almost
     all circumstances due to better resource usage.
@@ -242,11 +252,14 @@ class MulticycleDiv(Component):
     * A divide result is available when ``outp.valid`` is asserted. The
       result is read/overwritten once a downstream core asserts ``outp.ready``.
 
-    * Latency: Divide Results for a will be available ``width + 3`` clock
-      cycles after assertion of both ``inp.valid`` and ``inp.ready``.
+    * Latency: Divide Results for a restoring divider will be available
+      ``width + 3`` clock cycles after assertion of both ``inp.valid`` and
+      ``inp.ready``. For a non-restoring divider, results are available after
+      ``width + 4`` clock cycles.
 
     * Throughput: One divide maximum is finished every ``width + 3``
-      clock cycles.
+      clock cycles for a restoring divider, and every ``width + 4`` for a
+      non-restoring divider.
 
     Parameters
     ----------
@@ -254,6 +267,9 @@ class MulticycleDiv(Component):
         Width in bits of both inputs ``n`` and ``d``. For signed
         multiplies, this includes the sign bit. Outputs ``q`` and ``r`` width
         will be the same width.
+    impl : Impl
+        Choose whether to use a restoring divider or non-restoring divider
+        internally. The default of ``RESTORING`` is fine for most cases.
 
     Attributes
     ----------
@@ -266,37 +282,47 @@ class MulticycleDiv(Component):
 
     Notes
     -----
-    * This divider is implemented using non-restoring division, and is
-      basically a gateware translation of the
-      :ref:`Python implementation <nrdiv-py>` shown in :ref:`impl`.
+    * This divider is implemented using either restoring or non-restoring
+      division. It is basically a gateware translation of the
+      :ref:`Python <resdiv-py>` :ref:`implementations <nrdiv-py>` shown in
+      :ref:`impl`.
 
-    * For an :math:`n`-bit divide, this divider requires approximately
-      :math:`O(8*n)` storage elements (to store intermediate results).
+    * Unlike the multipliers, where I could eyeball approximate storage element
+      usage, divider size was benchmarked using
+      `yosys <https://yosyshq.net/yosys/>`_\ 's ``synth_ice40`` pass. For an
+      :math:`n`-bit divide:
+    
+      * ``impl=Impl.RESTORING`` requires approximately :math:`O(7*n)`
+        storage elements and :math:`O(12.75*n)` LUT4s.
+      * ``impl=Impl.NON_RESTORING`` requires approximately :math:`O(8*n)`
+        storage elements and :math:`O(14.5*n)` LUT4s.
 
     * Internally, the divider converts its operands from signed to unsigned
       if necessary, performs the division, and the converts back from unsigned
       to signed if necessary. I ran into some :ref:`issues <signedness>` with
       making a signed-aware non-restoring divider such that eating the
       conversion cost latency is probably justifiable for implementation
-      simplicity.
+      simplicity of both a restoring and non-restoring divider.
 
-      Additionally, the quotient and remainder require a possible
-      :ref:`final restore step <nrdiv-restore>`. Remainder restore is
-      implemented as shown in the :ref:`Python code <nrdiv-py>`.
-      Quotient restore is implemented by subtracting the ones complement of the
-      raw quotient from the raw quotient itself.
+    .. _latency:
 
-      .. _latency:
+      The combination of signed-to-unsigned conversion, using a cycle to
+      latching inputs to the internal divider, and unsigned-to-signed
+      conversion adds three cycles of latency beyond the expected ``width``
+      number of cycles to perform a division.
 
-      The combination of signed-to-unsigned conversion, restore step, and
-      unsigned-to-unsigned conversion adds three cycles of latency beyond
-      the expected ``width`` number of cycles to perform a division.
+      Additionally, when using a non-restoring divider, the quotient and
+      remainder require a possible :ref:`final restore step <nrdiv-restore>`.
+      Remainder restore is implemented as shown in the
+      :ref:`Python code <nrdiv-py>`. Quotient restore is implemented by
+      subtracting the ones complement of the raw quotient from the raw quotient
+      itself.
 
     * The quotient and remainder share a backing store; new bits are shifted
       into the lower-half quotient portion as the remainder is shifted into the
-      upper half. This works because each iteration of the non-restoring loop
-      checks the sign of the remainder, and the lower quotient bits won't
-      affect the sign bit.
+      upper half. This works because each iteration of the
+      restoring/non-restoring loops check the sign of the remainder, and the
+      lower quotient bits won't affect the sign bit.
 
     * This divider is compliant with RISC-V semantics for divide-by-zero and
       overflow when ``width=32`` or ``width=64``\ [rv]_. Specifically:
@@ -318,7 +344,7 @@ class MulticycleDiv(Component):
       stages at the cost of some timing closure.
     """
 
-    def __init__(self, width=8, impl=Impl.NON_RESTORING):
+    def __init__(self, width=8, impl=Impl.RESTORING):
         self.width = width
         if impl == Impl.RESTORING:
             self.div_impl = _RestoringDiv(width)

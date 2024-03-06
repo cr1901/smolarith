@@ -15,6 +15,7 @@ division algorithms, and the code works just fine. However, I found their
 definition of the recurrence relation that governs "slow" (one digit per cycle)
 division algorithms confusing. These are my notes for future-me.
 
+(derive-res)=
 ### Deriving Restoring Division
 
 Consider the following long division, meant to portray any "generic" divide
@@ -104,9 +105,10 @@ S_{j+1} := (S_j << 1) - q_{n - (j + 1)} * (D << n) \\
 ```
 
 {math}`q_j` can only be either {math}`0` or {math}`1`, which makes multiplication trivial
-(either subtract `0` or `D << n`). Since {math}`S_j` must be positive, we've
+(either subtract {math}`0` or {math}`D << n`). Since {math}`S_j` must be positive, we've
 turned finding the quotient and remainder into the following Python code:
 
+(resdiv-py)=
 ```{doctest}
 >>> def restoring_div(N, D, n):
 ...    S = N
@@ -226,6 +228,27 @@ our [constraints](constraint). A working implementation looks like such:
 This technique is called non-restoring division, thanks to the lack of
 restoring step to bring {math}`S_j` positive _except possibly at the final
 step_.
+
+### Benchmarking
+
+```{note}
+This section is still technically correct. However, I originally wrote it
+before I made a restoring divider version of {class}`~smolarith.div.MulticycleDiv`.
+For general use-cases, a restoring divider (the default as of v0.1.1) wins for
+size over a non-restoring divider. Both a restoring and non-restoring
+implementation are kept for future testing.
+
+It seems that  the restoring step each iteration doesn't have a perf penalty
+when done in parallel in hardware. In fact, the restoring version finishes one
+cycle sooner due to the lack of a final restoring step! Additionally, the size
+impact of restoring once per iteration seems negligible compared to the
+calculations required per iteration of a non-restoring divider (coupled with
+the possible final restore step).
+
+At this time, I have not done any experiments on making a signed restoring
+divider. There may or may not be the same complications as with a signed
+non-restoring divider to satisfy RISC-V semantics.
+```
 
 Why would you ever go through all this trouble? Well, here's a benchmark...
 
