@@ -1,6 +1,6 @@
 [project]
 name = "smolarith"
-version = "0.1.0"
+version = "0.1.1"
 description = "Soft-core arithmetic components written in Amaranth HDL"
 authors = [
     {name = "William D. Jones", email = "thor0505@comcast.net"},
