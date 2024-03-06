@@ -2,7 +2,7 @@
 
 from amaranth import Elaboratable, Module, Signal, signed, C, unsigned
 from amaranth.lib.data import StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component, connect, flipped
+from amaranth.lib.wiring import Signature, In, Out, Component
 from amaranth.lib.enum import Enum, auto
 
 
@@ -222,6 +222,11 @@ class _Negate(Component):
         return m
 
 
+class Impl(Enum):
+    RESTORING = auto()
+    NON_RESTORING = auto()
+
+
 class MulticycleDiv(Component):
     # FIXME: I can't be .. _latency label to work, even with :ref:`latency`...
     # always "undefined label"... huh?!
@@ -313,9 +318,12 @@ class MulticycleDiv(Component):
       stages at the cost of some timing closure.
     """
 
-    def __init__(self, width=8):
+    def __init__(self, width=8, impl=Impl.NON_RESTORING):
         self.width = width
-        self.nrdiv = _NonRestoringDiv(width)
+        if impl == Impl.RESTORING:
+            self.div_impl = _RestoringDiv(width)
+        elif impl == Impl.NON_RESTORING:
+            self.div_impl = _NonRestoringDiv(width)
         self.negate_nq = _Negate(width)
         self.negate_dr = _Negate(width)
 
@@ -327,7 +335,7 @@ class MulticycleDiv(Component):
     def elaborate(self, plat):  # noqa: D102
         m = Module()
 
-        m.submodules.nrdiv = self.nrdiv
+        m.submodules.div_impl = self.div_impl
         # Time-division multiplex negation units... in a multicycle div, only
         # n/d or q/r need to be negated at once.
         m.submodules.negate_nq = self.negate_nq
@@ -336,7 +344,7 @@ class MulticycleDiv(Component):
         quad = Signal(_Quadrant())
         div_inputs = Signal(Inputs(self.width))
 
-        m.d.comb += self.nrdiv.inp.payload.eq(div_inputs)
+        m.d.comb += self.div_impl.inp.payload.eq(div_inputs)
 
         with m.FSM():
             with m.State("IDLE"):
@@ -371,23 +379,23 @@ class MulticycleDiv(Component):
                             m.d.sync += div_inputs.d.eq(self.negate_dr.outp)
 
             with m.State("DIVIDE_IN"):
-                m.d.comb += self.nrdiv.inp.valid.eq(1)
+                m.d.comb += self.div_impl.inp.valid.eq(1)
 
-                with m.If(self.nrdiv.inp.ready):
+                with m.If(self.div_impl.inp.ready):
                     m.next = "DIVIDE_LOOP"
 
             with m.State("DIVIDE_LOOP"):
                 m.d.comb += [
-                    self.nrdiv.outp.ready.eq(1),
-                    self.negate_nq.inp.eq(self.nrdiv.outp.payload.q),
-                    self.negate_dr.inp.eq(self.nrdiv.outp.payload.r)
+                    self.div_impl.outp.ready.eq(1),
+                    self.negate_nq.inp.eq(self.div_impl.outp.payload.q),
+                    self.negate_dr.inp.eq(self.div_impl.outp.payload.r)
                 ]
 
-                with m.If(self.nrdiv.outp.valid):
+                with m.If(self.div_impl.outp.valid):
                     m.next = "DIVIDE_OUT"
 
                     m.d.sync += [
-                        self.outp.payload.eq(self.nrdiv.outp.payload),
+                        self.outp.payload.eq(self.div_impl.outp.payload),
                     ]
 
                     with m.If((div_inputs.sign == Sign.SIGNED) &
@@ -410,6 +418,70 @@ class MulticycleDiv(Component):
 
                 with m.If(self.outp.ready):
                     m.next = "IDLE"
+
+        return m
+
+
+class _RestoringDiv(Component):
+    """Unsigned-only restoring divider."""
+
+    def __init__(self, width=8):  # noqa: DOC
+        self.width = width
+        # sign Signals are unused- Sign.UNSIGNED is implicit.
+        super().__init__({
+            "inp": In(divider_input_signature(self.width)),
+            "outp": Out(divider_output_signature(self.width))
+        })
+
+    def elaborate(self, platform):
+        m = Module()
+
+        # Need extra bit because we need to subtract up to 2^width, which
+        # should remain negative.
+        intermediate = Signal(2*self.width + 1)
+        iters_left = Signal(range(self.inp.payload.n.shape().width + 1))
+        in_progress = Signal()
+        s_copy = Signal(Sign)
+        d_copy = Signal(self.inp.payload.d.shape())
+
+        m.d.comb += self.inp.ready.eq((self.outp.ready & self.outp.valid) |
+                                      ~in_progress)
+        m.d.comb += in_progress.eq(iters_left != 0)
+
+        with m.If(self.outp.valid & self.outp.ready):
+            m.d.sync += self.outp.valid.eq(0)
+
+        with m.If(self.inp.ready & self.inp.valid):
+            m.d.sync += [
+                s_copy.eq(self.inp.payload.sign),
+                d_copy.eq(self.inp.payload.d),
+                iters_left.eq(self.inp.payload.n.shape().width),
+                intermediate.eq(self.inp.payload.n)
+            ]
+
+        with m.If(in_progress):
+            # State Control
+            m.d.sync += iters_left.eq(iters_left - 1)
+
+            with m.If((iters_left - 1) == 0):
+                m.d.sync += self.outp.valid.eq(1)
+
+            # Loop iter
+            # S = (S << 1) - D
+            with m.If(((intermediate << 1) - (d_copy << self.width)) < 0):
+                # S += D
+                m.d.sync += intermediate.eq((intermediate << 1))  # noqa: E501
+            with m.Else():
+                # q <<=1 and then q |= 1
+                # (Docs do q |= 1 and then q <<= 1, requiring a >> at the end.)
+                m.d.sync += intermediate.eq(((intermediate << 1) -
+                                             (d_copy << self.width)) | 1)  # noqa: E501
+
+        m.d.comb += [
+            self.outp.payload.q.eq(intermediate[:self.width]),
+            self.outp.payload.r.eq(intermediate[self.width:]),
+            self.outp.payload.sign.eq(s_copy)
+        ]
 
         return m
 
@@ -449,15 +521,9 @@ class _NonRestoringDiv(Component):
             m.d.sync += [
                 s_copy.eq(self.inp.payload.sign),
                 d_copy.eq(self.inp.payload.d),
-                iters_left.eq(self.inp.payload.n.shape().width)
+                iters_left.eq(self.inp.payload.n.shape().width),
+                intermediate.eq(self.inp.payload.n)
             ]
-
-            # On initial iter, we'll never be below 0.
-            # S = (S << 1) - D, to be shifted into in top half, to be shifted
-            # into final position.
-            # q[-1] = 1, encoded as 1, encoded in bottom half, to be shifted
-            # into final position.
-            m.d.sync += intermediate.eq(self.inp.payload.n)
 
         with m.If(in_progress & ~restore_step):
             # State Control
