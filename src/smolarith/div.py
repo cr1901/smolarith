@@ -195,6 +195,16 @@ def divider_output_signature(width):
     })
 
 
+class _Quadrant(StructLayout):
+    """Store sign information about divider inputs."""
+
+    def __init__(self):  # noqa: DOC
+        super().__init__({
+            "n": unsigned(1),
+            "d": unsigned(1),
+        })
+
+
 class MulticycleDiv(Component):
     # FIXME: I can't be .. _latency label to work, even with :ref:`latency`...
     # always "undefined label"... huh?!
@@ -288,9 +298,7 @@ class MulticycleDiv(Component):
 
     def __init__(self, width=8):
         self.width = width
-        self.to_u = _SignedUnsignedConverter(width)
         self.nrdiv = _NonRestoringDiv(width)
-        self.from_u = _UnsignedSignedConverter(width)
 
         super().__init__({
             "inp": In(divider_input_signature(self.width)),
@@ -300,148 +308,81 @@ class MulticycleDiv(Component):
     def elaborate(self, plat):  # noqa: D102
         m = Module()
 
-        m.submodules.to_u = self.to_u
         m.submodules.nrdiv = self.nrdiv
-        m.submodules.from_u = self.from_u
 
-        connect(m, flipped(self.inp), self.to_u.inp)
-        connect(m, self.to_u.outp, self.nrdiv.inp)
-        connect(m, self.nrdiv.outp, self.from_u.inp)
-        connect(m, self.from_u.outp, flipped(self.outp))
-        connect(m, self.to_u.conv, self.from_u.conv)
+        quad = Signal(_Quadrant())
+        div_inputs = Signal(Inputs(self.width))
 
-        return m
+        m.d.comb += self.nrdiv.inp.payload.eq(div_inputs)
 
+        with m.FSM() as fsm:
+            with m.State("IDLE"):
+                m.d.comb += self.inp.ready.eq(1)
 
-class _Quadrant(StructLayout):
-    """Store sign information about divider inputs."""
-
-    def __init__(self):  # noqa: DOC
-        super().__init__({
-            "n": unsigned(1),
-            "d": unsigned(1),
-        })
-
-
-"""Pass sign information across an unsigned-only divider."""
-_ConvControl = Signature({
-    "quad": Out(_Quadrant()),
-    "ready": In(1),
-    "valid": Out(1)
-})
-
-
-class _SignedUnsignedConverter(Component):
-    """Convert maybe signed data to unsigned."""
-
-    def __init__(self, width=8):  # noqa: DOC
-        self.width = width
-
-        super().__init__({
-            "inp": In(divider_input_signature(self.width)),
-            "outp": Out(divider_input_signature(self.width)),
-            "conv": Out(_ConvControl),
-        })
-
-    def elaborate(self, plat):
-        m = Module()
-
-        m.d.comb += self.inp.ready.eq((~self.outp.valid |
-                                       (self.outp.valid & self.outp.ready)) &
-                                      (~self.conv.valid |
-                                       (self.conv.valid & self.conv.ready)))
-        
-        with m.If(self.outp.valid & self.outp.ready):
-            m.d.sync += self.outp.valid.eq(0)
-
-        with m.If(self.conv.valid & self.conv.ready):
-            m.d.sync += self.conv.valid.eq(0)
-
-        # Prempt outp.valid.eq(0) if both interfaces are ready on the same
-        # cycle.
-        with m.If(self.inp.valid & self.inp.ready):
-            m.d.sync += self.outp.valid.eq(1)
-            m.d.sync += self.conv.valid.eq(1)
-
-            # Re: (self.inp.payload.d != 0)
-            # For RISCV compliance when dividing by zero, we need to suppress
-            # signed-unsigned conversion. Treating the input bit pattern as-is
-            # will result in the correct behavior of "all bits set in divisor"
-            # and remainder unchanged, regardless of sign.
-            m.d.sync += [
-                self.conv.quad.n.eq(self.inp.payload.n[-1] &
-                                    (self.inp.payload.d != 0)),
-                self.conv.quad.d.eq(self.inp.payload.d[-1]),
-                self.outp.payload.n.eq(self.inp.payload.n),
-                self.outp.payload.d.eq(self.inp.payload.d),
-                self.outp.payload.sign.eq(self.inp.payload.sign)
-            ]
-
-            with m.If(self.inp.payload.sign == Sign.SIGNED):
-                with m.If(self.inp.payload.n[-1] & (self.inp.payload.d != 0)):
-                    m.d.sync += self.outp.payload.n.eq(
-                        (-self.inp.payload.n.as_signed())[:-1])
-                with m.If(self.inp.payload.d[-1]):
-                    m.d.sync += self.outp.payload.d.eq(
-                        (-self.inp.payload.d.as_signed())[:-1])
+                with m.If(self.inp.valid):
+                    m.next = "DIVIDE_IN"
                     
-        return m
+                    # Re: (self.inp.payload.d != 0)
+                    # For RISCV compliance when dividing by zero, we need to
+                    # suppress signed-unsigned conversion. Treating the input
+                    # bit pattern as-is will result in the correct behavior of
+                    # "all bits set in divisor" and remainder unchanged,
+                    # regardless of sign.
+                    m.d.sync += [
+                        quad.n.eq(self.inp.payload.n[-1] &
+                                  (self.inp.payload.d != 0)),
+                        quad.d.eq(self.inp.payload.d[-1]),
+                        div_inputs.eq(self.inp.payload)
+                    ]
 
+                    with m.If(self.inp.payload.sign == Sign.SIGNED):
+                        with m.If(self.inp.payload.n[-1] &
+                                  (self.inp.payload.d != 0)):
+                            m.d.sync += div_inputs.n.eq(
+                                (-self.inp.payload.n.as_signed())[:-1])
+                        with m.If(self.inp.payload.d[-1]):
+                            m.d.sync += div_inputs.d.eq(
+                                (-self.inp.payload.d.as_signed())[:-1])
 
-class _UnsignedSignedConverter(Component):
-    """Convert maybe unsigned data to signed."""
+            with m.State("DIVIDE_IN"):
+                m.d.comb += self.nrdiv.inp.valid.eq(1)
 
-    def __init__(self, width=8):  # noqa: DOC
-        self.width = width
+                with m.If(self.nrdiv.inp.ready):
+                    m.next = "DIVIDE_LOOP"
 
-        super().__init__({
-            "inp": In(divider_output_signature(self.width)),
-            "outp": Out(divider_output_signature(self.width)),
-            "conv": In(_ConvControl),
-        })
+            with m.State("DIVIDE_LOOP"):
+                m.d.comb += self.nrdiv.outp.ready.eq(1)
 
-    def elaborate(self, plat):
-        m = Module()
+                with m.If(self.nrdiv.outp.valid):
+                    m.next = "DIVIDE_OUT"
 
-        with m.If(self.outp.valid & self.outp.ready):
-            m.d.sync += self.outp.valid.eq(0)
+                    m.d.sync += [
+                        self.outp.payload.eq(self.nrdiv.outp.payload),
+                    ]
 
-        # Wait for both input interfaces to be valid, and then consume all
-        # input data at once.
-        with m.If(self.conv.valid & self.inp.valid &
-                  (~self.outp.valid | (self.outp.valid & self.outp.ready))):
-            m.d.comb += [
-                self.conv.ready.eq(1),
-                self.inp.ready.eq(1)
-            ]
-            m.d.sync += self.outp.valid.eq(1)
+                    with m.If((div_inputs.sign == Sign.SIGNED) &
+                              quad.n & ~quad.d):
+                        m.d.sync += [
+                            self.outp.payload.q.eq((-self.nrdiv.outp.payload.q.as_signed())[:-1]),
+                            self.outp.payload.r.eq((-self.nrdiv.outp.payload.r.as_signed())[:-1])
+                        ]
 
-            m.d.sync += [
-                self.outp.payload.q.eq(self.inp.payload.q),
-                self.outp.payload.r.eq(self.inp.payload.r),
-                self.outp.payload.sign.eq(self.inp.payload.sign)
-            ]
+                    with m.If((div_inputs.sign == Sign.SIGNED) &
+                              ~quad.n & quad.d):
+                        m.d.sync += self.outp.payload.q.eq(
+                            (-self.nrdiv.outp.payload.q.as_signed())[:-1])
+                        
+                    with m.If((div_inputs.sign == Sign.SIGNED) &
+                              quad.n & quad.d):
+                        m.d.sync += self.outp.payload.r.eq(
+                            (-self.nrdiv.outp.payload.r.as_signed())[:-1])
+                        
+            with m.State("DIVIDE_OUT"):
+                m.d.comb += self.outp.valid.eq(1)
 
-            with m.If((self.inp.payload.sign == Sign.SIGNED) &
-                      self.conv.quad.n &
-                      ~self.conv.quad.d):
-                m.d.sync += [
-                    self.outp.payload.q.eq((-self.inp.payload.q.as_signed())[:-1]),
-                    self.outp.payload.r.eq((-self.inp.payload.r.as_signed())[:-1])
-                ]
+                with m.If(self.outp.ready):
+                    m.next = "IDLE"
 
-            with m.If((self.inp.payload.sign == Sign.SIGNED) &
-                      ~self.conv.quad.n &
-                      self.conv.quad.d):
-                m.d.sync += self.outp.payload.q.eq(
-                    (-self.inp.payload.q.as_signed())[:-1])
-                
-            with m.If((self.inp.payload.sign == Sign.SIGNED) &
-                      self.conv.quad.n &
-                      self.conv.quad.d):
-                m.d.sync += self.outp.payload.r.eq(
-                    (-self.inp.payload.r.as_signed())[:-1])
-                
         return m
 
 
