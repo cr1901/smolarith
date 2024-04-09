@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The MulticycleDiv implementation has been simplified in two ways:
   
   - The internal divider and signed/unsigned conversion is now controlled by
-    an instead of streaming signed/unsigned units.
+    an FSM instead of streaming signed/unsigned units.
 
   - The internal divider uses a restoring algorithm by default.
 
