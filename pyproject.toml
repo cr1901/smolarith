@@ -1,6 +1,5 @@
 [project]
 name = "smolarith"
-version = "0.1.1"
 description = "Soft-core arithmetic components written in Amaranth HDL"
 authors = [
     {name = "William D. Jones", email = "thor0505@comcast.net"},
@@ -22,6 +21,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.8",
 ]
+dynamic = ["version"]
 
 [project.urls]
 documentation = "https://smolarith.readthedocs.io"
@@ -52,6 +52,10 @@ lint.pydocstyle.convention = "numpy"
 lint.pycodestyle.max-line-length = 79  # flake8 compat
 # I don't see the need to document tests like they're a public API.
 lint.per-file-ignores = { "tests/**/*.py" = ["D10"] }
+
+[tool.pdm.version]
+source = "scm"
+write_to = "smolarith/version.txt"
 
 [tool.pdm.dev-dependencies]
 dev = [
