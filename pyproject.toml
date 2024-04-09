@@ -9,7 +9,7 @@ dependencies = [
 ]
 requires-python = ">=3.8"
 readme = "README.md"
-license = {text = "MIT"}
+license = {file = "LICENSE.md"}
 keywords = ["multiplication", "division", "HDL", "cpu"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -17,7 +17,7 @@ classifiers = [
     "Intended Audience :: Telecommunications Industry",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Other Audience",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.8",
 ]
