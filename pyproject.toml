@@ -87,6 +87,16 @@ doc-test = "sphinx-build -b doctest doc/ doc/_build"
 doc-linkck = "sphinx-build doc/ doc/_linkcheck/ -b linkcheck"
 doc-auto = "sphinx-autobuild doc/ doc/_build/ --watch src/smolarith"
 
+[tool.pdm.scripts._add-ruff]
+cmd = "pdm add --dev -G lint ruff"
+env = { CARGO_PROFILE_RELEASE_LTO="false" }
+help = "add Ruff linter on MSYS2- work around Rust issue #109797"
+
+[tool.pdm.scripts._update-ruff]
+cmd = "pdm update --dev -G lint ruff"
+env = { CARGO_PROFILE_RELEASE_LTO="false" }
+help = "update Ruff linter on MSYS2- work around Rust issue #109797"
+
 [tool.doit.tasks.find_module]
 module = "smolarith.div:MulticycleDiv"
 width = 32
