@@ -5,7 +5,7 @@
 groups = ["default", "dev", "doc", "lint", "builtin-yosys", "bench"]
 strategy = ["cross_platform"]
 lock_version = "4.4.1"
-content_hash = "sha256:f6d268b00670149b18580695f18553b6768789f9c8468dcb41f6a9a3c0f8f372"
+content_hash = "sha256:d6acc77d757af41e02618d56152a25107e52b0e3d5bc778070469cdb5d3dbbe8"
 
 [[package]]
 name = "alabaster"
@@ -19,44 +19,41 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.4.5"
+version = "0.5.0.dev227"
 requires_python = "~=3.8"
+git = "https://github.com/amaranth-lang/amaranth"
+revision = "38ad35757b92b66226cd1863c1b3e5c24a3d9268"
 summary = "Amaranth hardware definition language"
 dependencies = [
     "Jinja2~=3.0",
     "importlib-resources; python_version < \"3.9\"",
     "pyvcd<0.5,>=0.2.2",
 ]
-files = [
-    {file = "amaranth-0.4.5-py3-none-any.whl", hash = "sha256:a9e81b7746eabd03b8f66b4a73534cae7ff34518f215716b5d7f3a0b4e9498a7"},
-    {file = "amaranth-0.4.5.tar.gz", hash = "sha256:a150fb9455d5aa00e0dbb496979711950abe82e6768fe15683b487c626fb5934"},
-]
 
 [[package]]
 name = "amaranth-yosys"
-version = "0.38.0.0.post87"
+version = "0.39.0.165.post92"
+requires_python = "~=3.8"
 summary = "Specialized WebAssembly build of Yosys used by Amaranth HDL"
 dependencies = [
     "importlib-resources>=1.4; python_version < \"3.9\"",
-    "wasmtime<19,>=1",
+    "wasmtime<20,>=1",
 ]
 files = [
-    {file = "amaranth_yosys-0.38.0.0.post87-py3-none-any.whl", hash = "sha256:8caad77f1832390f6ebe0a0945ed1f40710777ed8668780c54df3a6de29bccaa"},
+    {file = "amaranth_yosys-0.39.0.165.post92-py3-none-any.whl", hash = "sha256:8246b18a49aa116f40a7c0ab91743e07dbff5bced721dc05a29ae76c7882de06"},
 ]
 
 [[package]]
 name = "amaranth"
-version = "0.4.5"
+version = "0.5.0.dev227"
 extras = ["builtin-yosys"]
 requires_python = "~=3.8"
+git = "https://github.com/amaranth-lang/amaranth"
+revision = "38ad35757b92b66226cd1863c1b3e5c24a3d9268"
 summary = "Amaranth hardware definition language"
 dependencies = [
-    "amaranth-yosys>=0.38",
-    "amaranth==0.4.5",
-]
-files = [
-    {file = "amaranth-0.4.5-py3-none-any.whl", hash = "sha256:a9e81b7746eabd03b8f66b4a73534cae7ff34518f215716b5d7f3a0b4e9498a7"},
-    {file = "amaranth-0.4.5.tar.gz", hash = "sha256:a150fb9455d5aa00e0dbb496979711950abe82e6768fe15683b487c626fb5934"},
+    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
+    "amaranth-yosys>=0.39.0.165.post92",
 ]
 
 [[package]]
