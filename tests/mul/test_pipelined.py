@@ -3,6 +3,7 @@ from smolarith.mul import PipelinedMul, Sign
 from collections import deque
 from itertools import product
 import random
+from amaranth.sim import Tick
 
 
 def mk_pipelined_testbench(m, abs_iter):
@@ -37,7 +38,7 @@ def mk_pipelined_testbench(m, abs_iter):
 
             if s != s_prev:
                 yield m.inp.payload.sign.eq(s)
-            yield
+            yield Tick()
             (a_prev, b_prev, s_prev) = (a, b, s)
 
             (a_c, b_c) = prev.popleft()
@@ -56,7 +57,7 @@ def mk_pipelined_testbench(m, abs_iter):
 
         # Drain pipeline.
         for _ in range(m.width):
-            yield
+            yield Tick()
             (a_c, b_c) = prev.popleft()
             prev.append((a, b))
 
@@ -120,31 +121,31 @@ def pipeline_tb(sim_mod):
         yield m.inp.payload.b.eq(1)
         yield m.inp.valid.eq(1)
         yield m.outp.ready.eq(1)
-        yield
+        yield Tick()
 
         yield m.inp.payload.a.eq(2)
         yield m.inp.payload.b.eq(2)
-        yield
+        yield Tick()
 
         # Pipeline should continue working...
         yield m.inp.valid.eq(0)
-        yield
+        yield Tick()
 
         yield m.inp.valid.eq(1)
         yield m.inp.payload.a.eq(3)
         yield m.inp.payload.b.eq(3)
-        yield
+        yield Tick()
 
         yield m.inp.payload.a.eq(4)
         yield m.inp.payload.b.eq(4)
-        yield
+        yield Tick()
 
         yield m.inp.valid.eq(0)
         for _ in range(3):
-            yield
+            yield Tick()
 
         yield m.outp.ready.eq(0)
-        yield
+        yield Tick()
 
         yield m.outp.ready.eq(1)
         assert (yield m.outp.valid) == 1
@@ -152,39 +153,39 @@ def pipeline_tb(sim_mod):
         assert (yield m.outp.payload.o) == 1
         # Pipeline should stall...
         assert (yield m.inp.ready) == 0
-        yield
+        yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == Sign.UNSIGNED
         assert (yield m.outp.payload.o) == 1
         assert (yield m.inp.ready) == 1
-        yield
+        yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == Sign.UNSIGNED
         assert (yield m.outp.payload.o) == 4
         assert (yield m.inp.ready) == 1
-        yield
+        yield Tick()
 
         assert (yield m.outp.valid) == 0
         assert (yield m.inp.ready) == 1
-        yield
+        yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == Sign.UNSIGNED
         assert (yield m.outp.payload.o) == 9
         assert (yield m.inp.ready) == 1
-        yield
+        yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == Sign.UNSIGNED
         assert (yield m.outp.payload.o) == 16
         assert (yield m.inp.ready) == 1
-        yield
+        yield Tick()
 
         assert (yield m.outp.valid) == 0
         assert (yield m.inp.ready) == 1
-        yield
+        yield Tick()
 
     return testbench
 

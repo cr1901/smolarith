@@ -1,6 +1,7 @@
 import pytest
 from math import fmod
 from smolarith.div import Sign
+from amaranth.sim import Tick
 
 
 @pytest.fixture
@@ -12,13 +13,13 @@ def reference_tb(sim_mod, n, d, q, r, sign):
         yield m.inp.payload.d.eq(d)
         yield m.inp.payload.sign.eq(sign)
         yield m.inp.valid.eq(1)
-        yield
+        yield Tick()
 
         yield m.inp.valid.eq(0)  # Only schedule one xfer.
         yield m.outp.ready.eq(1)  # Immediately ready for retrieval.
-        yield
+        yield Tick()
         for _ in range(delay):
-            yield
+            yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == sign.value
@@ -30,7 +31,7 @@ def reference_tb(sim_mod, n, d, q, r, sign):
             assert (yield m.outp.payload.q.as_signed()) == q
             assert (yield m.outp.payload.r.as_signed()) == r
 
-        yield
+        yield Tick()
         assert (yield m.outp.valid) == 0
 
     return testbench
@@ -45,13 +46,13 @@ def mismatch_tb(sim_mod, n, d, q, r, sign):
         yield m.inp.payload.d.eq(d)
         yield m.inp.payload.sign.eq(sign)
         yield m.inp.valid.eq(1)
-        yield
+        yield Tick()
 
         yield m.inp.valid.eq(0)  # Only schedule one xfer.
         yield m.outp.ready.eq(1)  # Immediately ready for retrieval.
-        yield
+        yield Tick()
         for _ in range(delay):
-            yield
+            yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == sign.value
@@ -63,7 +64,7 @@ def mismatch_tb(sim_mod, n, d, q, r, sign):
             assert (yield m.outp.payload.q.as_signed()) == q
             assert (yield m.outp.payload.r.as_signed()) == r
 
-        yield
+        yield Tick()
         assert (yield m.outp.valid) == 0
 
     return testbench
@@ -78,20 +79,20 @@ def riscv_tb(sim_mod, n, d, q, r):
         yield m.inp.payload.d.eq(d)
         yield m.inp.payload.sign.eq(Sign.SIGNED)
         yield m.inp.valid.eq(1)
-        yield
+        yield Tick()
 
         yield m.inp.valid.eq(0)  # Only schedule one xfer.
         yield m.outp.ready.eq(1)  # Immediately ready for retrieval.
-        yield
+        yield Tick()
         for _ in range(delay):
-            yield
+            yield Tick()
 
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.q.as_signed()) == q
         assert (yield m.outp.payload.r.as_signed()) == r
         assert (yield m.outp.payload.sign) == Sign.SIGNED.value
 
-        yield
+        yield Tick()
         assert (yield m.outp.valid) == 0
 
     return testbench
@@ -108,13 +109,13 @@ def signed_tb(sim_mod):
                 yield m.inp.payload.d.eq(d)
                 yield m.inp.payload.sign.eq(Sign.SIGNED)
                 yield m.inp.valid.eq(1)
-                yield
+                yield Tick()
 
                 yield m.inp.valid.eq(0)  # Only schedule one xfer.
                 yield m.outp.ready.eq(1)  # Immediately ready for retrieval.
-                yield
+                yield Tick()
                 for _ in range(delay):
-                    yield
+                    yield Tick()
 
                 assert (yield m.outp.valid) == 1
                 assert (yield m.outp.payload.sign) == Sign.SIGNED.value
@@ -143,13 +144,13 @@ def unsigned_tb(sim_mod):
                 yield m.inp.payload.d.eq(d)
                 yield m.inp.payload.sign.eq(Sign.UNSIGNED)
                 yield m.inp.valid.eq(1)
-                yield
+                yield Tick()
 
                 yield m.inp.valid.eq(0)  # Only schedule one xfer.
                 yield m.outp.ready.eq(1)  # Immediately ready for retrieval.
-                yield
+                yield Tick()
                 for _ in range(delay):
-                    yield
+                    yield Tick()
 
                 assert (yield m.outp.valid) == 1
                 assert (yield m.outp.payload.sign) == Sign.UNSIGNED.value

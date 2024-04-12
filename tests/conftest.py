@@ -14,18 +14,22 @@ def pytest_addoption(parser):
 class SimulatorFixture:
     def __init__(self, req, cfg):
         self.mod = req.node.get_closest_marker("module").args[0]
-        self.name = req.node.name
+        # TODO: Perhaps parse node.nodeid instead?
+        self.name = req.node.name + "-" + req.module.__name__
         self.sim = Simulator(self.mod)
         self.vcds = cfg.getoption("vcds")
 
         for clk in req.node.get_closest_marker("clks").args[0]:
             self.sim.add_clock(clk)
 
-    def run(self, sync_processes, processes=[]):
-        for s in sync_processes:
-            self.sim.add_sync_process(s)
+    def run(self, testbenches=[], sync_processes=[], comb_processes=[]):
+        for t in testbenches:
+            self.sim.add_testbench(t)
 
-        for p in processes:
+        for s in sync_processes:
+            self.sim.add_process(s)
+
+        for p in comb_processes:
             self.sim.add_process(p)
 
         if self.vcds:

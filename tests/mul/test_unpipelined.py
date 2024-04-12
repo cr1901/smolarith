@@ -1,6 +1,7 @@
 import pytest
 from smolarith.mul import MulticycleMul, Sign
 from itertools import product
+from amaranth.sim import Tick
 
 
 def mk_unpipelined_testbench(m, abs_iter):
@@ -29,12 +30,12 @@ def mk_unpipelined_testbench(m, abs_iter):
             if s != s_prev:
                 yield m.inp.payload.sign.eq(s)
             yield m.inp.valid.eq(1)
-            yield
+            yield Tick()
             (a_prev, b_prev, s_prev) = (a, b, s)
 
             yield m.inp.valid.eq(0)
             while not (yield m.outp.valid):
-                yield
+                yield Tick()
 
             if (yield m.outp.payload.sign) == Sign.UNSIGNED.value:
                 assert a*b == (yield m.outp.payload.o)
