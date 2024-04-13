@@ -41,6 +41,7 @@ markers = [
   "clks: tuple of clocks to register for simulator.",
   "module: top-level module to simulate."
 ]
+long_vcd_filenames = true
 
 [tool.ruff]
 src = [ "src", "tests" ]  # https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc

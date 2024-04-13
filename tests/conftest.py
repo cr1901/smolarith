@@ -9,13 +9,29 @@ def pytest_addoption(parser):
         action="store_true",
         help="generate Value Change Dump (vcds) from simulations",
     )
+    parser.addini(
+        "long_vcd_filenames",
+        type="bool",
+        default=False,
+        help="if set, vcd files get longer, but less ambiguous, filenames"
+    )
 
 
 class SimulatorFixture:
     def __init__(self, req, cfg):
-        self.mod = req.node.get_closest_marker("module").args[0]
-        # TODO: Perhaps parse node.nodeid instead?
-        self.name = req.node.name + "-" + req.module.__name__
+        mod = req.node.get_closest_marker("module").args[0]
+
+        if hasattr(req, "param"):
+            args, kwargs = req.param
+            self.mod = mod(*args, **kwargs)
+        else:
+            self.mod = mod
+
+        if cfg.getini("long_vcd_filenames"):
+            self.name = req.node.name + "-" + req.module.__name__
+        else:
+            self.name = req.node.name
+
         self.sim = Simulator(self.mod)
         self.vcds = cfg.getoption("vcds")
 
