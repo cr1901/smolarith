@@ -252,29 +252,30 @@ non-restoring divider to satisfy RISC-V semantics.
 
 Why would you ever go through all this trouble? Well, here's a benchmark...
 
-<!-- WARNING: There are leading zero-width spaces in the below code block for
-every line starting with ">>>" or "...". This works around a pytest-sphinx
-bug (?) which treats them as part of a doctest anyway. This will fail with
-UNEXPECTED EXCEPTION: SystemExit(None) due to the exit() line, which was copied
-and pasted directly from my shell session :D. -->
-```powershell
-PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> pdm run
+```{prompt}
+:language: powershell
+:prompts: PS C:\\msys64\\home\\William\\Projects\\FPGA\\amaranth\\smolarith>,>>>,...
+:modifiers: auto
+PS C:\\msys64\\home\\William\\Projects\\FPGA\\amaranth\\smolarith> pdm run
 No command is given, default to the Python REPL.
 Python 3.11.8 (main, Feb 13 2024, 07:18:52)  [GCC 13.2.0 64 bit (AMD64)] on win32
 Type "help", "copyright", "credits" or "license" for more information.
-​>>> from amaranth.back.verilog import convert
-​>>> from smolarith.div import MulticycleDiv, LongDivider
-​>>> with open("nrdiv.v", "w") as fp:
-​...     fp.write(convert(MulticycleDiv(32)))
-​...
-​53043
-​>>>
-​>>> with open("longdiv.v", "w") as fp:
-​...     fp.write(convert(LongDivider(32)))
-​...
-​76614
-​>>> exit()
-PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -QTp 'tee -q synth_ice40; stat' longdiv.v
+>>> from amaranth.back.verilog import convert
+>>> from smolarith.div import MulticycleDiv, LongDivider
+>>>
+>>> nrdiv_v = convert(MulticycleDiv(32))
+>>> with open("nrdiv.v", "w") as fp:  # doctest: +SKIP
+...     fp.write(nrdiv_v)
+...
+53043
+>>>
+>>> longdiv_v = convert(LongDivider(32))
+>>> with open("longdiv.v", "w") as fp:    # doctest: +SKIP
+...     fp.write(longdiv_v)
+...
+76614
+>>> exit()  # doctest: +SKIP
+PS C:\\msys64\\home\\William\\Projects\\FPGA\\amaranth\\smolarith> yosys -QTp 'tee -q synth_ice40; stat' longdiv.v
 
 -- Parsing `longdiv.v' using frontend ` -vlog2k' --
 
@@ -303,7 +304,7 @@ Successfully finished Verilog frontend.
      SB_DFFSR                       97
      SB_LUT4                      3492
 
-PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -QTp 'tee -q synth_ice40; stat' nrdiv.v
+PS C:\\msys64\\home\\William\\Projects\\FPGA\\amaranth\\smolarith> yosys -QTp 'tee -q synth_ice40; stat' nrdiv.v
 
 -- Parsing `nrdiv.v' using frontend ` -vlog2k' --
 
@@ -335,9 +336,9 @@ Successfully finished Verilog frontend.
      SB_DFFSR                       34
      SB_LUT4                       697
 
-PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith> yosys -V
+PS C:\\msys64\\home\\William\\Projects\\FPGA\\amaranth\\smolarith> yosys -V
 Yosys 0.38+92 (git sha1 84116c9a3, sccache x86_64-w64-mingw32-g++ 13.2.0 -Os)
-PS C:\msys64\home\William\Projects\FPGA\amaranth\smolarith>
+PS C:\\msys64\\home\\William\\Projects\\FPGA\\amaranth\\smolarith>
 ```
 
 While I haven't spent much effort optimizing either {class}`~smolarith.div.LongDivider`

@@ -27,13 +27,13 @@ dynamic = ["version"]
 documentation = "https://smolarith.readthedocs.io"
 repository = "https://github.com/cr1901/smolarith"
 
-
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-glob=\"*.md\""
+# examples dir will eventually be committed.
+addopts = "--doctest-glob=\"*.md\" --doctest-modules --ignore=examples --ignore=doc/conf.py"
 pythonpath = [
   "src/",
 ]
@@ -68,6 +68,8 @@ doc = [
     "sphinx-rtd-theme>=2.0.0",
     "myst-parser>=2.0.0",
     "sphinx-autobuild>=2021.3.14",
+    "packaging>=24.0",  # Detect intersphinx mapping for amaranth, version for smolarith.
+    "sphinx-prompt>=1.5.0",
 ]
 lint = [
     "ruff>=0.2.2",
@@ -82,7 +84,7 @@ bench = [
 
 [tool.pdm.scripts]
 test = "pytest"
-lint = { composite = ["ruff check", "flake8", "doc-test"] }
+lint = { composite = ["ruff check", "flake8"] }
 bench = "doit stats"
 emit = "doit -r error-only emit_verilog"
 
