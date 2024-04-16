@@ -33,7 +33,7 @@ build-backend = "pdm.backend"
 
 [tool.pytest.ini_options]
 # examples dir will eventually be committed.
-addopts = "--doctest-glob=\"*.md\" --doctest-modules --ignore=examples --ignore=doc/conf.py"
+addopts = "--doctest-glob=\"*.md\" --doctest-modules --ignore=examples"
 pythonpath = [
   "src/",
 ]

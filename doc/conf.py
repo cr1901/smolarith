@@ -9,16 +9,16 @@
 
 import sys
 import os
-import importlib_metadata
+import importlib.metadata
 from packaging.version import Version
 
 project = 'smolarith'
 copyright = '2024, William D. Jones'
 
 try:
-    sa_ver = Version(importlib_metadata.version("smolarith"))
-    am_ver = Version(importlib_metadata.version("amaranth"))
-except importlib_metadata.PackageNotFoundError as e:
+    sa_ver = Version(importlib.metadata.version("smolarith"))
+    am_ver = Version(importlib.metadata.version("amaranth"))
+except importlib.metadata.PackageNotFoundError as e:
     msg = "run \"pdm install --dev -G dev -G doc\" before building docs"
     raise RuntimeError(msg) from e
 
