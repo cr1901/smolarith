@@ -1,3 +1,5 @@
+# amaranth: UnusedElaboratable=no
+
 import pytest
 from smolarith.mul import MulticycleMul, Sign
 from itertools import product
@@ -11,6 +13,8 @@ def mk_unpipelined_testbench(m, abs_iter):
         a_prev = None
         b_prev = None
         s_prev = None
+
+        yield Tick()
 
         yield m.inp.valid.eq(1)
         yield m.outp.ready.eq(1)
@@ -46,8 +50,8 @@ def mk_unpipelined_testbench(m, abs_iter):
 
 
 @pytest.fixture
-def all_values_tb(request, sim_mod):
-    _, m = sim_mod
+def all_values_tb(request, mod):
+    m = mod
     mode = request.param
 
     if mode == Sign.UNSIGNED:
@@ -63,11 +67,10 @@ def all_values_tb(request, sim_mod):
     return mk_unpipelined_testbench(m, product(a_range, b_range, (mode,)))
 
 
-@pytest.mark.module(MulticycleMul(6))
-@pytest.mark.clks((1.0 / 12e6,))
 @pytest.mark.parametrize("all_values_tb", [Sign.UNSIGNED, Sign.SIGNED,
                                            Sign.SIGNED_UNSIGNED],
                          indirect=True)
-def test_unpipelined_mul(sim_mod, all_values_tb):
-    sim, m = sim_mod
-    sim.run(sync_processes=[all_values_tb])
+@pytest.mark.parametrize("mod,clks", [(MulticycleMul(6),
+                                       1.0 / 12e6)])
+def test_unpipelined_mul(sim, all_values_tb):
+    sim.run(testbenches=[all_values_tb])

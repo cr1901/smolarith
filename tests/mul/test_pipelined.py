@@ -1,3 +1,5 @@
+# amaranth: UnusedElaboratable=no
+
 import pytest
 from smolarith.mul import PipelinedMul, Sign
 from collections import deque
@@ -9,17 +11,24 @@ from amaranth.sim import Tick
 def mk_pipelined_testbench(m, abs_iter):
     def testbench():
         # Pipeline previous inputs... inputs to prev.append() are what
-        # will go into the multiplier at the next active edge.
-        # Outputs from prev.popleft()  are what went into the multiplier
-        # "m.width - 1" active edges ago. This leads to a latency of
+        # just went into the multiplier at the current active edge.
+        # Outputs from prev.popleft() are what went into the multiplier
+        # "m.width" active edges ago. This leads to a latency of
         # "m.width" clock cycles/ticks since the multiplier saw the inputs.
-        prev = deque([(0, 0)]*m.width)
+        #
+        # We only need m.width - 1 storage, because a latency of "1" means
+        # the multiplier outputs will be immediately available after the
+        # current active edge that just happened (no need to store!).
+        # This testbench doesn't work with m.width == 1 :).
+        prev = deque([(0, 0)]*(m.width - 1))
 
         # Not yielding to the simulator when values don't change
         # can result in significant speedups.
         a_prev = None
         b_prev = None
         s_prev = None
+
+        yield Tick()
 
         yield m.inp.valid.eq(1)
         yield m.outp.ready.eq(1)
@@ -70,8 +79,8 @@ def mk_pipelined_testbench(m, abs_iter):
 
 
 @pytest.fixture
-def all_values_tb(request, sim_mod):
-    _, m = sim_mod
+def all_values_tb(request, mod):
+    m = mod
     mode = request.param
 
     if mode == Sign.UNSIGNED:
@@ -88,8 +97,8 @@ def all_values_tb(request, sim_mod):
 
 
 @pytest.fixture
-def random_tb(sim_mod):
-    _, m = sim_mod
+def random_tb(mod):
+    m = mod
 
     def random_muls():
         for i in range(256):
@@ -112,9 +121,11 @@ def random_tb(sim_mod):
 
 
 @pytest.fixture
-def pipeline_tb(sim_mod):
+def pipeline_tb(mod):
     def testbench():
-        _, m = sim_mod
+        m = mod
+
+        yield Tick()
 
         yield m.inp.payload.sign.eq(Sign.UNSIGNED)
         yield m.inp.payload.a.eq(1)
@@ -145,9 +156,6 @@ def pipeline_tb(sim_mod):
             yield Tick()
 
         yield m.outp.ready.eq(0)
-        yield Tick()
-
-        yield m.outp.ready.eq(1)
         assert (yield m.outp.valid) == 1
         assert (yield m.outp.payload.sign) == Sign.UNSIGNED
         assert (yield m.outp.payload.o) == 1
@@ -155,9 +163,8 @@ def pipeline_tb(sim_mod):
         assert (yield m.inp.ready) == 0
         yield Tick()
 
-        assert (yield m.outp.valid) == 1
-        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
-        assert (yield m.outp.payload.o) == 1
+        # Until we indicate we're ready to accept data.
+        yield m.outp.ready.eq(1)
         assert (yield m.inp.ready) == 1
         yield Tick()
 
@@ -190,26 +197,23 @@ def pipeline_tb(sim_mod):
     return testbench
 
 
-@pytest.mark.module(PipelinedMul(8, debug=True))
-@pytest.mark.clks((1.0 / 12e6,))
 @pytest.mark.parametrize("all_values_tb", [Sign.UNSIGNED, Sign.SIGNED,
                                            Sign.SIGNED_UNSIGNED],
                          indirect=True)
-def test_pipelined_mul(sim_mod, all_values_tb):
-    sim, m = sim_mod
-    sim.run(sync_processes=[all_values_tb])
+@pytest.mark.parametrize("mod,clks", [(PipelinedMul(8, debug=True),
+                                       1.0 / 12e6)])
+def test_pipelined_mul(sim, all_values_tb):
+    sim.run(testbenches=[all_values_tb])
 
 
-@pytest.mark.module(PipelinedMul(32, debug=True))
-@pytest.mark.clks((1.0 / 12e6,))
-def test_random_32b(sim_mod, random_tb):
-    sim, m = sim_mod
+@pytest.mark.parametrize("mod,clks", [(PipelinedMul(32, debug=True),
+                                       1.0 / 12e6)])
+def test_random_32b(sim, random_tb):
     random.seed(0)
-    sim.run(sync_processes=[random_tb])
+    sim.run(testbenches=[random_tb])
 
 
-@pytest.mark.module(PipelinedMul(8, debug=True))
-@pytest.mark.clks((1.0 / 12e6,))
-def test_pipeline_stall(sim_mod, pipeline_tb):
-    sim, m = sim_mod
-    sim.run(sync_processes=[pipeline_tb])
+@pytest.mark.parametrize("mod,clks", [(PipelinedMul(8, debug=True),
+                                       1.0 / 12e6)])
+def test_pipeline_stall(sim, pipeline_tb):
+    sim.run(testbenches=[pipeline_tb])

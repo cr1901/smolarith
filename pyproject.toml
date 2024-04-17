@@ -37,10 +37,7 @@ addopts = "--doctest-glob=\"*.md\" --doctest-modules --ignore=examples"
 pythonpath = [
   "src/",
 ]
-markers = [
-  "clks: tuple of clocks to register for simulator.",
-  "module: top-level module to simulate."
-]
+required_plugins = "pytest-amaranth-sim"
 long_vcd_filenames = true
 
 [tool.ruff]
@@ -62,6 +59,7 @@ write_to = "smolarith/version.txt"
 dev = [
     "pytest>=7.4.2",
     "pytest-sphinx>=0.6.0",
+    "pytest-amaranth-sim @ git+https://github.com/cr1901/pytest-amaranth-sim",
 ]
 doc = [
     "sphinx>=7.1.2",

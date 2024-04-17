@@ -1,3 +1,5 @@
+# amaranth: UnusedElaboratable=no
+
 import pytest
 from math import fmod
 from smolarith.div import Sign
@@ -5,10 +7,12 @@ from amaranth.sim import Tick
 
 
 @pytest.fixture
-def reference_tb(sim_mod, n, d, q, r, sign):
-    _, m = sim_mod
+def reference_tb(mod, n, d, q, r, sign):
+    m = mod
 
     def testbench(delay):
+        yield Tick()
+
         yield m.inp.payload.n.eq(n)
         yield m.inp.payload.d.eq(d)
         yield m.inp.payload.sign.eq(sign)
@@ -38,10 +42,12 @@ def reference_tb(sim_mod, n, d, q, r, sign):
 
 
 @pytest.fixture
-def mismatch_tb(sim_mod, n, d, q, r, sign):
-    _, m = sim_mod
+def mismatch_tb(mod, n, d, q, r, sign):
+    m = mod
 
     def testbench(delay):
+        yield Tick()
+
         yield m.inp.payload.n.eq(n)
         yield m.inp.payload.d.eq(d)
         yield m.inp.payload.sign.eq(sign)
@@ -71,10 +77,12 @@ def mismatch_tb(sim_mod, n, d, q, r, sign):
 
 
 @pytest.fixture
-def riscv_tb(sim_mod, n, d, q, r):
-    _, m = sim_mod
+def riscv_tb(mod, n, d, q, r):
+    m = mod
 
     def testbench(delay):
+        yield Tick()
+
         yield m.inp.payload.n.eq(n)
         yield m.inp.payload.d.eq(d)
         yield m.inp.payload.sign.eq(Sign.SIGNED)
@@ -99,10 +107,12 @@ def riscv_tb(sim_mod, n, d, q, r):
 
 
 @pytest.fixture
-def signed_tb(sim_mod):
-    _, m = sim_mod
+def signed_tb(mod):
+    m = mod
 
     def testbench(delay):
+        yield Tick()
+
         for n in range(-2**(m.width-1), 2**(m.width-1)):
             yield m.inp.payload.n.eq(n)
             for d in range(-2**(m.width-1), 2**(m.width-1)):
@@ -130,14 +140,18 @@ def signed_tb(sim_mod):
                     assert (yield m.outp.payload.q.as_signed()) == int(n / d)
                     assert (yield m.outp.payload.r.as_signed()) == fmod(n, d)
 
+                yield Tick()
+
     return testbench
 
 
 @pytest.fixture
-def unsigned_tb(sim_mod):
-    _, m = sim_mod
+def unsigned_tb(mod):
+    m = mod
 
     def testbench(delay):
+        yield Tick()
+
         for n in range(0, 2**m.width):
             yield m.inp.payload.n.eq(n)
             for d in range(0, 2**m.width):
@@ -161,6 +175,8 @@ def unsigned_tb(sim_mod):
                 else:
                     assert (yield m.outp.payload.q.as_unsigned()) == int(n / d)
                     assert (yield m.outp.payload.r.as_unsigned()) == fmod(n, d)
+
+                yield Tick()
 
     return testbench
 
