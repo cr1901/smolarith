@@ -39,6 +39,7 @@ pythonpath = [
 ]
 required_plugins = "pytest-amaranth-sim"
 long_vcd_filenames = true
+extend_vcd_time = "41666666"  # extend by half a 12MHz period.
 
 [tool.ruff]
 src = [ "src", "tests" ]  # https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
