@@ -152,21 +152,29 @@ def all_values(request, mod):
 
 
 @pytest.fixture
-def random_vals(request):
+def random_vals(mod):
+    w = mod.width -1
+
+    def shift_to_unsigned(v):
+        if v == -2**w:
+            return 0  # Most negative value maps to 0.
+        elif v < 0:
+            return v * -1
+        else:  # v >= 0
+            return v | (1 << 31)
+
     def vals():
         for i in range(256):
-            a = random.randint(-2**31, (2**31)-1)
-            b = random.randint(-2**31, (2**31)-1)
+            a = random.randint(-2**w, (2**w)-1)
+            b = random.randint(-2**w, (2**w)-1)
             s = random.choice([Sign.UNSIGNED, Sign.SIGNED,
                                Sign.SIGNED_UNSIGNED])
 
             if s == Sign.UNSIGNED:
-                if a < 0:
-                    a *= -1
-                if b < 0:
-                    b *= -1
+                a = shift_to_unsigned(a)
+                b = shift_to_unsigned(b)
             elif s == Sign.SIGNED_UNSIGNED and b < 0:
-                b *= -1
+                b = shift_to_unsigned(b)
 
             yield (a, b, s)
 
@@ -258,9 +266,12 @@ def test_all_values(sim, all_values, make_testbench):
 
 
 @pytest.mark.parametrize("mod", [PipelinedMul(32, debug=True),
-                                 MulticycleMul(32)])
+                                 MulticycleMul(32),
+                                 PipelinedMul(64, debug=True),
+                                 MulticycleMul(64)],
+                         ids=["p32", "m32", "p64", "m64"])
 @pytest.mark.parametrize("clks", [1.0 / 12e6])
-def test_random_32b(sim, random_vals, make_testbench):
+def test_random(sim, random_vals, make_testbench):
     random.seed(0)
     sim.run(testbenches=[make_testbench(random_vals)])
 
