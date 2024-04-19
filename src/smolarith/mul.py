@@ -429,7 +429,7 @@ class PipelinedMul(Component):
         # If the output isn't valid, we can accept another multiply. If
         # the output _is_ valid, we can only accept accept another multiply
         # if the output is being read this cycle.
-        m.d.comb += self.inp.ready.eq(self.outp.valid.implies(self.outp.ready))
+        m.d.comb += self.inp.ready.eq(~self.outp.valid | self.outp.ready)
         m.d.sync += pipeline_in[0].v.eq(0)
 
         with m.If(self.inp.ready & self.inp.valid):

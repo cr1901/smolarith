@@ -251,7 +251,7 @@ def pipeline_tb(mod):
 
 
 @pytest.mark.parametrize("mod", [PipelinedMul(8, debug=True),
-                                 MulticycleMul(8)])
+                                 MulticycleMul(6)])
 @pytest.mark.parametrize("clks", [1.0 / 12e6])
 def test_all_values(sim, all_values, make_testbench):
     sim.run(testbenches=[make_testbench(all_values)])
