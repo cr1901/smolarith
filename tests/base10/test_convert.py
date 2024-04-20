@@ -15,7 +15,7 @@ def basic_tb(mod):
             for n in range(m.width):
                 d = i % 10
                 i //= 10
-                assert (yield m.outp[4*n:4*(n+1)]) == d
+                assert (yield m.outp[n]) == d
 
         yield Delay(1.0 / 12e6)
 

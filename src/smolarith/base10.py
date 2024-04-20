@@ -2,10 +2,9 @@
 
 import math
 
-from amaranth import Cat, Elaboratable, Module, Signal, signed, C, unsigned
-from amaranth.lib.data import StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component
-from amaranth.lib.enum import Enum, auto
+from amaranth import Cat, Module, Signal
+from amaranth.lib.data import ArrayLayout
+from amaranth.lib.wiring import In, Out, Component
 
 
 def _base10_width(x):
@@ -73,7 +72,7 @@ class _DoubleDabble(Component):
 
         super().__init__({
             "inp": In(self.width),
-            "outp": Out(4*self.num_bcd_digits)
+            "outp": Out(ArrayLayout(4, self.num_bcd_digits))
         })
 
     def elaborate(self, plat):
@@ -140,7 +139,7 @@ class _DoubleDabble(Component):
                     m.d.comb += \
                         sa3s[level][i].cin.eq(sa3s[level - 1][i - 1].cout)
                     
-            m.d.comb += self.outp[4*level:4*(level+1)].eq(
+            m.d.comb += self.outp[level].eq(
                 Cat(sa3s[level][i].outp, sa3s[level][i].cout))
 
             level += 1
@@ -156,6 +155,6 @@ class _DoubleDabble(Component):
             m.d.comb += last_digit[i].eq(
                 sa3s[level - 1][final_depth - i - 1].cout)
         
-        m.d.comb += self.outp[4*level:4*(level+1)].eq(last_digit)
+        m.d.comb += self.outp[level].eq(last_digit)
 
         return m
