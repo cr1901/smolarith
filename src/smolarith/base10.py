@@ -1,10 +1,12 @@
 """Components for doing base-10 arithmetic and conversion."""
 
+from enum import auto
+import enum
 import math
 
 from amaranth import Cat, Module, Signal
 from amaranth.lib.data import ArrayLayout
-from amaranth.lib.wiring import In, Out, Component
+from amaranth.lib.wiring import In, Out, Component, Signature, connect, flipped
 
 
 def _base10_width(x):
@@ -156,5 +158,307 @@ class _DoubleDabble(Component):
                 sa3s[level - 1][final_depth - i - 1].cout)
         
         m.d.comb += self.outp[level].eq(last_digit)
+
+        return m
+
+
+def binary_input_signature(width):
+    """Create a parametric binary input data port.
+
+    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    that's usable as a transfer initiator to a Binary-to-BCD converter. A
+    conversion starts on the current cycle when both ``valid`` and ``rdy`` are
+    asserted.
+
+    Parameters
+    ----------
+    width : int
+        Width in bits of the binary input.
+
+    Returns
+    -------
+    :class:`~amaranth:amaranth.lib.wiring.Signature`
+        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
+        following members:
+
+        .. attribute:: .payload
+            :type: Out(width)
+            :noindex:
+
+            Data input to Binary-to-BCD converter.
+
+        .. attribute:: .ready
+            :type: In(1)
+            :noindex:
+
+            When ``1``, indicates that converter is ready.
+
+        .. attribute:: .valid
+            :type: Out(1)
+            :noindex:
+
+            When ``1``, indicates that Binary-to-BCD converter data input is
+            valid.
+    """
+    return Signature({
+        "payload": Out(width),
+        "ready": In(1),
+        "valid": Out(1)
+    })
+
+
+def _base1000_signature(num_digits):
+    """Create a parametric Base1000 data port.
+
+    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    that's usable as a transfer initiator **from** a Binary-to-Base1000
+    converter.
+
+    .. note:: For a core responding **to** a Binary-to-Base1000 converter,
+              which is the typical use case, you will want to use this
+              Signature with the :data:`~amaranth:amaranth.lib.wiring.In` flow,
+              like so:
+
+              .. doctest::
+
+                  >>> from smolarith.base10 import _base1000_signature
+                  >>> from amaranth.lib.wiring import Signature, In
+                  >>> my_receiver_sig = Signature({
+                  ...     "inp": In(_base1000_signature(num_digits=2))
+                  ... })
+
+    Parameters
+    ----------
+    num_digits : int
+        Number of digits in the base-1000 output.
+
+    Returns
+    -------
+    :class:`~amaranth:amaranth.lib.wiring.Signature`
+        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
+        following members:
+
+        .. attribute:: .payload
+            :type: Out(ArrayLayout(10, num_digits))
+            :noindex:
+
+            Base-1000 number, where each digit is <= 999 in base-2.
+
+        .. attribute:: .ready
+            :type: In(1)
+            :noindex:
+
+            When ``1``, indicates that responder is ready to receive results.
+
+        .. attribute:: .valid
+            :type: Out(1)
+            :noindex:
+
+            When ``1``, indicates that Binary-to-Base1000 converter data output
+            is valid.
+    """
+    return Signature({
+        "payload": Out(ArrayLayout(10, num_digits)),
+        "ready": In(1),
+        "valid": Out(1)
+    })
+
+
+def bcd_output_signature(num_digits):
+    """Create a parametric BCD data output port.
+
+    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    that's usable as a transfer initiator **from** a Binary-to-BCD
+    converter.
+
+    .. note:: For a core responding **to** a Binary-to-BCD converter,
+              which is the typical use case, you will want to use this
+              Signature with the :data:`~amaranth:amaranth.lib.wiring.In` flow,
+              like so:
+
+              .. doctest::
+
+                  >>> from smolarith.base10 import bcd_output_signature
+                  >>> from amaranth.lib.wiring import Signature, In
+                  >>> my_receiver_sig = Signature({
+                  ...     "inp": In(bcd_output_signature(num_digits=2))
+                  ... })
+
+    Parameters
+    ----------
+    num_digits : int
+        Number of digits in the BCD output.
+
+    Returns
+    -------
+    :class:`~amaranth:amaranth.lib.wiring.Signature`
+        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
+        following members:
+
+        .. attribute:: .payload
+            :type: Out(ArrayLayout(10, num_digits))
+            :noindex:
+
+            Packed BCD number, where each digit is 4 bits and <= 9 in base-2.
+
+        .. attribute:: .ready
+            :type: In(1)
+            :noindex:
+
+            When ``1``, indicates that responder is ready to receive results.
+
+        .. attribute:: .valid
+            :type: Out(1)
+            :noindex:
+
+            When ``1``, indicates that Binary-to-BCD converter data output
+            is valid.
+    """
+    return Signature({
+        "payload": Out(ArrayLayout(4, num_digits)),
+        "ready": In(1),
+        "valid": Out(1)
+    })
+
+
+def _mac24(x, y):
+    return 24*x + y
+
+
+# H. C. Neto and M. P. Vestias, "Decimal multiplier on FPGA using embedded
+# binary multipliers,"  2008 International Conference on Field Programmable
+# Logic and Applications, Heidelberg, Germany, 2008, pp. 197-202,
+# doi: 10.1109/FPL.2008.4629931.
+class _B2ToB1000(Component):
+    def __init__(self, pipeline_stages=3):
+        self.pipeline_stages = pipeline_stages
+        super().__init__({
+            "inp": In(binary_input_signature(20)),
+            "outp": Out(_base1000_signature(2))
+        })
+
+    def elaborate(self, plat):
+        if self.pipeline_stages == 3:
+            return self._pipelined_3(plat)
+        else:
+            raise NotImplementedError("_B2ToB1000 has not been implemented "
+                                      f"with {self.pipeline_stages} pipeline "
+                                      "stages")
+
+    def _pipelined_3(self, plat):
+        m = Module()
+
+        b2 = Signal(10)
+        c = Signal(15)
+        d0_guess = Signal(11)
+        d1_guess = Signal(10)
+
+        valid = Signal(ArrayLayout(1, 2))
+        not_stalled = Signal()
+
+        with m.If(~self.outp.valid | self.outp.ready):
+            m.d.comb += not_stalled.eq(1)
+        m.d.comb += self.inp.ready.eq(not_stalled)
+
+        m.d.sync += valid[0].eq(0)
+        with m.If(not_stalled & self.inp.valid):
+            m.d.sync += valid[0].eq(1)
+            m.d.sync += b2.eq(self.inp.payload[10:])
+            m.d.sync += c.eq(_mac24(self.inp.payload[10:],
+                                    self.inp.payload[0:10]))
+
+        with m.If(not_stalled):
+            m.d.sync += [
+                valid[1].eq(valid[0]),
+                d0_guess.eq(_mac24(c[10:], c[:10])),
+                d1_guess.eq(b2 + c[10:])
+            ]
+
+        with m.If(not_stalled):
+            m.d.sync += self.outp.valid.eq(valid[1])
+
+            with m.If(d0_guess > 999):
+                m.d.sync += [
+                    self.outp.payload[0].eq(d0_guess + 24),
+                    self.outp.payload[1].eq(d1_guess + 1)
+                ]
+            with m.Else():
+                m.d.sync += [
+                    self.outp.payload[0].eq(d0_guess),
+                    self.outp.payload[1].eq(d1_guess)
+                ]
+
+        return m
+
+
+class BinaryToBCD(Component):
+    class Limit(enum.Enum):
+        LARGEST_POWER_10 = auto()
+        ENTIRE_RANGE = auto()
+
+    def __init__(self, width, limit=Limit.LARGEST_POWER_10):
+        self.width = width
+        self.num_bcd_digits = _base10_width(self.width)
+
+        super().__init__({
+            "inp": In(binary_input_signature(20)),
+            "outp": Out(bcd_output_signature(self.num_bcd_digits))
+        })
+
+    def elaborate(self, plat):
+        m = Module()
+
+        # It's not worth using _B2ToB1000 for just 24 values for width == 10.
+        if self.num_bcd_digits < 3 or \
+                (BinaryToBCD.Limit.LARGEST_POWER_10 and self.width <= 10):
+            dd = _DoubleDabble(self.width)
+            m.submodules += dd
+            m.d.comb += dd.inp.eq(self.inp.payload)
+
+            m.d.comb += self.inp.ready.eq(~self.outp.valid | self.outp.ready)
+
+            with m.If(self.outp.valid & self.outp.ready):
+                m.d.sync += self.outp.valid.eq(0)
+
+            with m.If(self.inp.valid & self.inp.ready):
+                m.d.sync += [
+                    self.outp.valid.eq(1),
+                    self.outp.payload.eq(dd.outp)
+                ]
+
+        # Tolerate truncation
+        elif (self.num_bcd_digits > 3 and self.num_bcd_digits <= 6) or \
+                (BinaryToBCD.Limit.LARGEST_POWER_10 and self.width <= 20):
+            b2b1000 = _B2ToB1000()
+            dd0 = _DoubleDabble(10)
+            dd1 = _DoubleDabble(10)
+
+            m.submodules += dd0, dd1, b2b1000
+
+            connect(m, flipped(self.inp), b2b1000.inp)
+
+            m.d.comb += [
+                dd0.inp.eq(b2b1000.outp.payload[0]),
+                dd1.inp.eq(b2b1000.outp.payload[1])
+            ]
+
+            m.d.comb += b2b1000.outp.ready.eq(~self.outp.valid |
+                                              self.outp.ready)
+
+            with m.If(self.outp.valid & self.outp.ready):
+                m.d.sync += self.outp.valid.eq(0)
+
+            with m.If(b2b1000.outp.valid & b2b1000.outp.ready):
+                m.d.sync += [
+                    self.outp.valid.eq(1),
+                    self.outp.payload[0].eq(dd0.outp[0]),
+                    self.outp.payload[1].eq(dd0.outp[1]),
+                    self.outp.payload[2].eq(dd0.outp[2]),
+                ]
+
+                for d in range(3, self.num_bcd_digits):
+                    m.d.sync += self.outp.payload[d].eq(dd1.outp[d - 3])
+        else:
+            raise NotImplementedError
 
         return m
