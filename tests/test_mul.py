@@ -4,24 +4,15 @@ import pytest
 from smolarith.mul import MulticycleMul, PipelinedMul, Sign
 from collections import deque
 from itertools import product
-from functools import partial
 import random
 from amaranth.sim import Tick
 
 
-def amaranth_tb(tb):
-    def wrapper(*args, **kwargs):
-        return partial(tb, *args, **kwargs)
-    return wrapper
-
-
-@pytest.fixture
-def make_testbench(mod):
+def make_testbench(mod, values):
     m = mod
 
     if isinstance(mod, PipelinedMul):
-        @amaranth_tb
-        def tb(values):
+        def tb():
             # Pipeline previous inputs... inputs to prev.append() are what
             # just went into the multiplier at the current active edge.
             # Outputs from prev.popleft() are what went into the multiplier
@@ -87,8 +78,7 @@ def make_testbench(mod):
                 else:
                     assert a_c*b_c == (yield m.outp.payload.o.as_signed())
     elif isinstance(mod, MulticycleMul):
-        @amaranth_tb
-        def tb(values):
+        def tb():
             # Not yielding to the simulator when values don't change
             # can result in significant speedups.
             a_prev = None
@@ -261,8 +251,8 @@ def pipeline_tb(mod):
 @pytest.mark.parametrize("mod", [PipelinedMul(8, debug=True),
                                  MulticycleMul(6)])
 @pytest.mark.parametrize("clks", [1.0 / 12e6])
-def test_all_values(sim, all_values, make_testbench):
-    sim.run(testbenches=[make_testbench(all_values)])
+def test_all_values(sim, mod, all_values):
+    sim.run(testbenches=[make_testbench(mod, all_values)])
 
 
 @pytest.mark.parametrize("mod", [PipelinedMul(32, debug=True),
@@ -271,9 +261,9 @@ def test_all_values(sim, all_values, make_testbench):
                                  MulticycleMul(64)],
                          ids=["p32", "m32", "p64", "m64"])
 @pytest.mark.parametrize("clks", [1.0 / 12e6])
-def test_random(sim, random_vals, make_testbench):
+def test_random(sim, mod, random_vals):
     random.seed(0)
-    sim.run(testbenches=[make_testbench(random_vals)])
+    sim.run(testbenches=[make_testbench(mod, random_vals)])
 
 
 @pytest.mark.parametrize("mod,clks", [(PipelinedMul(8, debug=True),
