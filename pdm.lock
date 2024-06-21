@@ -5,7 +5,7 @@
 groups = ["default", "dev", "doc", "lint", "builtin-yosys", "bench"]
 strategy = ["cross_platform"]
 lock_version = "4.4.1"
-content_hash = "sha256:4f81163f3ff00982dd1572f21741a588926116372955c04c9ddf8f4d15416dc4"
+content_hash = "sha256:308381f9bd17fda742d4aa06e85a75d4e8e90a01ff2b8709c765aafee0a748f1"
 
 [[package]]
 name = "alabaster"
@@ -19,16 +19,18 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.5.0.dev310"
+version = "0.5.0"
 requires_python = "~=3.8"
-git = "https://github.com/amaranth-lang/amaranth"
-revision = "d1895108c3e61ae7f2b309d970c8b1a2521dcdf6"
 summary = "Amaranth hardware definition language"
 dependencies = [
     "Jinja2~=3.0",
     "importlib-resources; python_version < \"3.9\"",
     "jschon~=0.11.1",
     "pyvcd<0.5,>=0.2.2",
+]
+files = [
+    {file = "amaranth-0.5.0-py3-none-any.whl", hash = "sha256:3d05d38864d6e88e40db93ed29ac0bee7f2a351d12810d4414f5b65a7cb0e23f"},
+    {file = "amaranth-0.5.0.tar.gz", hash = "sha256:9d2a1893d6ac938e0ff3983892eff5b56033e06691cc89674eb8d500dc46cdf6"},
 ]
 
 [[package]]
@@ -46,15 +48,17 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.5.0.dev310"
+version = "0.5.0"
 extras = ["builtin-yosys"]
 requires_python = "~=3.8"
-git = "https://github.com/amaranth-lang/amaranth"
-revision = "d1895108c3e61ae7f2b309d970c8b1a2521dcdf6"
 summary = "Amaranth hardware definition language"
 dependencies = [
-    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
     "amaranth-yosys>=0.40",
+    "amaranth==0.5.0",
+]
+files = [
+    {file = "amaranth-0.5.0-py3-none-any.whl", hash = "sha256:3d05d38864d6e88e40db93ed29ac0bee7f2a351d12810d4414f5b65a7cb0e23f"},
+    {file = "amaranth-0.5.0.tar.gz", hash = "sha256:9d2a1893d6ac938e0ff3983892eff5b56033e06691cc89674eb8d500dc46cdf6"},
 ]
 
 [[package]]
@@ -585,13 +589,13 @@ files = [
 
 [[package]]
 name = "pytest-amaranth-sim"
-version = "0.1.dev14"
+version = "0.1.dev15"
 requires_python = ">=3.8"
 git = "https://github.com/cr1901/pytest-amaranth-sim"
-revision = "79f80814b743b5bac4472f8e006d3fc8723a5ec1"
+revision = "dadf48c93be8f41c8cbacb66f7f7e184eb1dceed"
 summary = "Fixture to automate running Amaranth simulations"
 dependencies = [
-    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
+    "amaranth>=0.5.0",
     "in-place>=1.0.0",
     "pytest>=6.2.0",
 ]

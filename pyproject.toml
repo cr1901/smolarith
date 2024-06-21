@@ -5,7 +5,7 @@ authors = [
     {name = "William D. Jones", email = "thor0505@comcast.net"},
 ]
 dependencies = [
-    "amaranth @ git+https://github.com/amaranth-lang/amaranth",
+    "amaranth>=0.5.0",
 ]
 requires-python = ">=3.8"
 readme = "README.md"
@@ -75,7 +75,7 @@ lint = [
     "pydoclint[flake8]>=0.4.1",
 ]
 builtin-yosys = [
-    "amaranth[builtin-yosys] @ git+https://github.com/amaranth-lang/amaranth",
+    "amaranth[builtin-yosys]>=0.5.0",
 ]
 bench = [
     "doit>=0.36.0",
