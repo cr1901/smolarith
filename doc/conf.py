@@ -10,10 +10,15 @@
 import sys
 import os
 import importlib.metadata
+import warnings
 from packaging.version import Version
 
 project = 'smolarith'
 copyright = '2024, William D. Jones'
+
+# Don't hide DeprecationWarnings:
+# https://docs.python.org/3/library/warnings.html#overriding-the-default-filter
+warnings.simplefilter("default")
 
 try:
     sa_ver = Version(importlib.metadata.version("smolarith"))
