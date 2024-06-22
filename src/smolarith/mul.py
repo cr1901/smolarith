@@ -2,7 +2,8 @@
 
 from amaranth import Module, Signal, signed, unsigned
 from amaranth.lib.data import ArrayLayout, StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component
+from amaranth.lib.wiring import In, Out, Component
+from amaranth.lib import stream
 
 from amaranth.lib.enum import IntEnum, auto
 
@@ -108,7 +109,7 @@ class Outputs(StructLayout):
 def multiplier_input_signature(width):
     """Create a parametric multiplier input port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator to a multiplier. A multiply starts
     on the current cycle when both ``valid`` and ``rdy`` are asserted.
 
@@ -120,39 +121,17 @@ def multiplier_input_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Inputs)
-            :noindex:
-
-            Data input to multiplier.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that multiplier is ready.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that multiplier data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :class:`Inputs`.
     """
-    return Signature({
-        "payload": Out(Inputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Inputs(width))
 
 
 def multiplier_output_signature(width):
     """Create a parametric multiplier output port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator **from** a multiplier.
 
     .. note:: For a core responding **to** a multiplier, which is the typical
@@ -175,35 +154,11 @@ def multiplier_output_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Outputs)
-            :noindex:
-
-            Data output **from** multiplier.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that responder is ready to receive results
-            from multiplier.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that multiplier output data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :class:`Outputs`.
     """
-    return Signature({
-        "payload": Out(Outputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
-
+    return stream.Signature(Outputs(width))
 
 
 class PipelinedMul(Component):

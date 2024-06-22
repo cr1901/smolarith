@@ -6,7 +6,8 @@ import math
 
 from amaranth import Cat, Module, Signal
 from amaranth.lib.data import ArrayLayout
-from amaranth.lib.wiring import In, Out, Component, Signature, connect, flipped
+from amaranth.lib.wiring import In, Out, Component, connect, flipped
+from amaranth.lib import stream
 
 
 def _base10_width(x):
@@ -165,7 +166,7 @@ class _DoubleDabble(Component):
 def binary_input_signature(width):
     """Create a parametric binary input data port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator to a Binary-to-BCD converter. A
     conversion starts on the current cycle when both ``valid`` and ``rdy`` are
     asserted.
@@ -177,40 +178,17 @@ def binary_input_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(width)
-            :noindex:
-
-            Data input to Binary-to-BCD converter.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that converter is ready.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that Binary-to-BCD converter data input is
-            valid.
+    :class:`~amaranth:amaranth.lib.stream.Signature`
+        :class:`~amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :py:func:`amaranth:amaranth.hdl.unsigned` (``width`` bits).
     """
-    return Signature({
-        "payload": Out(width),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(width)
 
 
 def _base1000_signature(num_digits):
     """Create a parametric Base1000 data port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator **from** a Binary-to-Base1000
     converter.
 
@@ -234,34 +212,16 @@ def _base1000_signature(num_digits):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
 
-        .. attribute:: .payload
-            :type: Out(ArrayLayout(10, num_digits))
-            :noindex:
-
-            Base-1000 number, where each digit is <= 999 in base-2.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that responder is ready to receive results.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that Binary-to-Base1000 converter data output
-            is valid.
+        The :class:`~amaranth:amaranth.lib.data.ArrayLayout` has length
+        `num_digits` with :py:func:`amaranth:amaranth.hdl.unsigned` elements
+        that are 10 bits long. Each element represents a Base-1000 number
+        in base-2, where *it is assumed that each digit <= 999*.
     """
-    return Signature({
-        "payload": Out(ArrayLayout(10, num_digits)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(ArrayLayout(10, num_digits))
 
 
 def bcd_output_signature(num_digits):
@@ -291,34 +251,16 @@ def bcd_output_signature(num_digits):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
 
-        .. attribute:: .payload
-            :type: Out(ArrayLayout(10, num_digits))
-            :noindex:
-
-            Packed BCD number, where each digit is 4 bits and <= 9 in base-2.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that responder is ready to receive results.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that Binary-to-BCD converter data output
-            is valid.
+        The :class:`~amaranth:amaranth.lib.data.ArrayLayout` has length
+        `num_digits` with :py:func:`amaranth:amaranth.hdl.unsigned` elements
+        that are 4 bits long. Each element represents a Packed BCD number
+        in base-2, where *it is assumed that each digit <= 9*.
     """
-    return Signature({
-        "payload": Out(ArrayLayout(4, num_digits)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(ArrayLayout(4, num_digits))
 
 
 def _mac24(x, y):

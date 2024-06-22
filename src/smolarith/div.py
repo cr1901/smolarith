@@ -2,8 +2,9 @@
 
 from amaranth import Elaboratable, Module, Signal, signed, C, unsigned
 from amaranth.lib.data import StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component
+from amaranth.lib.wiring import In, Out, Component
 from amaranth.lib.enum import Enum, auto
+from amaranth.lib import stream
 
 
 class Sign(Enum):
@@ -98,7 +99,7 @@ class Outputs(StructLayout):
 def divider_input_signature(width):
     """Create a parametric divider input port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator to a divider. A divider starts
     on the current cycle when both ``valid`` and ``rdy`` are asserted.
 
@@ -110,39 +111,17 @@ def divider_input_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Inputs)
-            :noindex:
-
-            Data input to divider.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that divider is ready.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that divider data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :class:`Inputs`.
     """
-    return Signature({
-        "payload": Out(Inputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Inputs(width))
 
 
 def divider_output_signature(width):
     """Create a parametric divider output port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator **from** a divider.
 
     .. note:: For a core responding **to** a divider, which is the typical
@@ -165,34 +144,11 @@ def divider_output_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Outputs)
-            :noindex:
-
-            Data output **from** divider.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that responder is ready to receive results
-            from divider.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that divider output data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
+        shape :class:`Outputs`.
     """
-    return Signature({
-        "payload": Out(Outputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Outputs(width))
 
 
 class _Quadrant(StructLayout):
