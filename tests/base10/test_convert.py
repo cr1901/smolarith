@@ -1,23 +1,22 @@
 import pytest
 from smolarith.base10 import _DoubleDabble, _B2ToB1000, BinaryToBCD
-from amaranth.sim import Delay, Tick
 
 
 @pytest.fixture
 def basic_tb(mod):
     m = mod
 
-    def testbench():
+    async def testbench(ctx):
         for i in range(2**m.width):
-            yield Delay(1.0 / 12e6)
-            yield m.inp.eq(i)
+            await ctx.delay(1.0 / 12e6)
+            ctx.set(m.inp, i)
 
             for n in range(m.width):
                 d = i % 10
                 i //= 10
-                assert (yield m.outp[n]) == d
+                assert ctx.get(m.outp[n]) == d
 
-        yield Delay(1.0 / 12e6)
+        await ctx.delay(1.0 / 12e6)
 
     return testbench
 
@@ -26,22 +25,21 @@ def basic_tb(mod):
 def base1000_tb(mod):
     m = mod
 
-    def testbench():
-        yield Tick()
+    async def testbench(ctx):
+        await ctx.tick()
 
-        yield m.inp.payload.eq(33333)
-        yield m.inp.valid.eq(1)
-        yield m.outp.ready.eq(1)
-        yield Tick()
+        ctx.set(m.inp.payload, 33333)
+        ctx.set(m.inp.valid, 1)
+        ctx.set(m.outp.ready, 1)
+        await ctx.tick()
 
         # I make no promises about latency for a private module.
-        while (yield m.outp.valid) == 0:
-            yield Tick()
+        await ctx.tick().until(m.outp.valid == 1)
 
-        assert (yield m.outp.payload[0]) == 333
-        assert (yield m.outp.payload[1]) == 33
+        assert ctx.get(m.outp.payload[0]) == 333
+        assert ctx.get(m.outp.payload[1]) == 33
 
-        yield Tick()
+        await ctx.tick()
 
     return testbench
 
@@ -50,25 +48,24 @@ def base1000_tb(mod):
 def base10_tb(mod):
     m = mod
 
-    def testbench():
-        yield Tick()
+    async def testbench(ctx):
+        await ctx.tick()
 
         val = 543210
-        yield m.inp.payload.eq(543210)
-        yield m.inp.valid.eq(1)
-        yield m.outp.ready.eq(1)
-        yield Tick()
+        ctx.set(m.inp.payload, 543210)
+        ctx.set(m.inp.valid, 1)
+        ctx.set(m.outp.ready, 1)
+        await ctx.tick()
 
         # TODO: Create some guarantees about latency?
-        while (yield m.outp.valid) == 0:
-            yield Tick()
+        await ctx.tick().until(m.outp.valid == 1)
 
         for n in range(m.width):
             d = val % 10
             val //= 10
-            assert (yield m.outp.payload[n]) == d
+            assert ctx.get(m.outp.payload[n]) == d
 
-        yield Tick()
+        await ctx.tick()
 
     return testbench
 

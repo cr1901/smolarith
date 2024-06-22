@@ -5,14 +5,13 @@ from smolarith.mul import MulticycleMul, PipelinedMul, Sign
 from collections import deque
 from itertools import product
 import random
-from amaranth.sim import Tick
 
 
 def make_testbench(mod, values):
     m = mod
 
     if isinstance(mod, PipelinedMul):
-        def tb():
+        async def tb(ctx):
             # Pipeline previous inputs... inputs to prev.append() are what
             # just went into the multiplier at the current active edge.
             # Outputs from prev.popleft() are what went into the multiplier
@@ -31,35 +30,35 @@ def make_testbench(mod, values):
             b_prev = None
             s_prev = None
 
-            yield Tick()
+            await ctx.tick()
 
-            yield m.inp.valid.eq(1)
-            yield m.outp.ready.eq(1)
+            ctx.set(m.inp.valid, 1)
+            ctx.set(m.outp.ready, 1)
 
             for (a, b, s) in values:
                 if s == Sign.UNSIGNED:
                     if a != a_prev:
-                        yield m.inp.payload.a.eq(a)
+                        ctx.set(m.inp.payload.a, a)
                     if b != b_prev:
-                        yield m.inp.payload.b.eq(b)
+                        ctx.set(m.inp.payload.b, b)
                 else:
                     if a != a_prev:
-                        yield m.inp.payload.a.as_signed().eq(a)
+                        ctx.set(m.inp.payload.a.as_signed(), a)
                     if b != b_prev:
-                        yield m.inp.payload.b.as_signed().eq(b)
+                        ctx.set(m.inp.payload.b.as_signed(), b)
 
                 if s != s_prev:
-                    yield m.inp.payload.sign.eq(s)
-                yield Tick()
+                    ctx.set(m.inp.payload.sign, s)
+                await ctx.tick()
                 (a_prev, b_prev, s_prev) = (a, b, s)
 
                 (a_c, b_c) = prev.popleft()
                 prev.append((a, b))
 
-                if (yield m.outp.payload.sign) == Sign.UNSIGNED.value:
-                    assert a_c*b_c == (yield m.outp.payload.o)
+                if ctx.get(m.outp.payload.sign) == Sign.UNSIGNED.value:
+                    assert a_c*b_c == ctx.get(m.outp.payload.o)
                 else:
-                    assert a_c*b_c == (yield m.outp.payload.o.as_signed())
+                    assert a_c*b_c == ctx.get(m.outp.payload.o.as_signed())
 
                 # print((a, b), (a_c, b_c), a_c*b_c, (yield m.o))
                 # for i in range(8):
@@ -69,53 +68,52 @@ def make_testbench(mod, values):
 
             # Drain pipeline.
             for _ in range(m.width):
-                yield Tick()
+                await ctx.tick()
                 (a_c, b_c) = prev.popleft()
                 prev.append((a, b))
 
-                if (yield m.outp.payload.sign) == Sign.UNSIGNED.value:
-                    assert a_c*b_c == (yield m.outp.payload.o)
+                if ctx.get(m.outp.payload.sign) == Sign.UNSIGNED.value:
+                    assert a_c*b_c == ctx.get(m.outp.payload.o)
                 else:
-                    assert a_c*b_c == (yield m.outp.payload.o.as_signed())
+                    assert a_c*b_c == ctx.get(m.outp.payload.o.as_signed())
     elif isinstance(mod, MulticycleMul):
-        def tb():
+        async def tb(ctx):
             # Not yielding to the simulator when values don't change
             # can result in significant speedups.
             a_prev = None
             b_prev = None
             s_prev = None
 
-            yield Tick()
+            await ctx.tick()
 
-            yield m.inp.valid.eq(1)
-            yield m.outp.ready.eq(1)
+            ctx.set(m.inp.valid, 1)
+            ctx.set(m.outp.ready, 1)
 
             for (a, b, s) in values:
                 if s == Sign.UNSIGNED:
                     if a != a_prev:
-                        yield m.inp.payload.a.eq(a)
+                        ctx.set(m.inp.payload.a, a)
                     if b != b_prev:
-                        yield m.inp.payload.b.eq(b)
+                        ctx.set(m.inp.payload.b, b)
                 else:
                     if a != a_prev:
-                        yield m.inp.payload.a.as_signed().eq(a)
+                        ctx.set(m.inp.payload.a.as_signed(), a)
                     if b != b_prev:
-                        yield m.inp.payload.b.as_signed().eq(b)
+                        ctx.set(m.inp.payload.b.as_signed(), b)
 
                 if s != s_prev:
-                    yield m.inp.payload.sign.eq(s)
-                yield m.inp.valid.eq(1)
-                yield Tick()
+                    ctx.set(m.inp.payload.sign, s)
+                ctx.set(m.inp.valid, 1)
+                await ctx.tick()
                 (a_prev, b_prev, s_prev) = (a, b, s)
 
-                yield m.inp.valid.eq(0)
-                while not (yield m.outp.valid):
-                    yield Tick()
+                ctx.set(m.inp.valid, 0)
+                await ctx.tick().until(m.outp.valid == 1)
 
-                if (yield m.outp.payload.sign) == Sign.UNSIGNED.value:
-                    assert a*b == (yield m.outp.payload.o)
+                if ctx.get(m.outp.payload.sign) == Sign.UNSIGNED.value:
+                    assert a*b == ctx.get(m.outp.payload.o)
                 else:
-                    assert a*b == (yield m.outp.payload.o.as_signed())
+                    assert a*b == ctx.get(m.outp.payload.o.as_signed())
     else:
         assert False
 
@@ -173,77 +171,76 @@ def random_vals(mod):
 
 @pytest.fixture
 def pipeline_tb(mod):
-    def testbench():
+    async def testbench(ctx):
         m = mod
 
-        yield Tick()
+        await ctx.tick()
 
-        yield m.inp.payload.sign.eq(Sign.UNSIGNED)
-        yield m.inp.payload.a.eq(1)
-        yield m.inp.payload.b.eq(1)
-        yield m.inp.valid.eq(1)
-        yield m.outp.ready.eq(1)
-        yield Tick()
+        ctx.set(m.inp.payload.sign, Sign.UNSIGNED)
+        ctx.set(m.inp.payload.a, 1)
+        ctx.set(m.inp.payload.b, 1)
+        ctx.set(m.inp.valid, 1)
+        ctx.set(m.outp.ready, 1)
+        await ctx.tick()
 
-        yield m.inp.payload.a.eq(2)
-        yield m.inp.payload.b.eq(2)
-        yield Tick()
+        ctx.set(m.inp.payload.a, 2)
+        ctx.set(m.inp.payload.b, 2)
+        await ctx.tick()
 
         # Pipeline should continue working...
-        yield m.inp.valid.eq(0)
-        yield Tick()
+        ctx.set(m.inp.valid, 0)
+        await ctx.tick()
 
-        yield m.inp.valid.eq(1)
-        yield m.inp.payload.a.eq(3)
-        yield m.inp.payload.b.eq(3)
-        yield Tick()
+        ctx.set(m.inp.valid, 1)
+        ctx.set(m.inp.payload.a, 3)
+        ctx.set(m.inp.payload.b, 3)
+        await ctx.tick()
 
-        yield m.inp.payload.a.eq(4)
-        yield m.inp.payload.b.eq(4)
-        yield Tick()
+        ctx.set(m.inp.payload.a, 4)
+        ctx.set(m.inp.payload.b, 4)
+        await ctx.tick()
 
-        yield m.inp.valid.eq(0)
-        for _ in range(3):
-            yield Tick()
+        ctx.set(m.inp.valid, 0)
+        await ctx.tick().repeat(3)
 
-        yield m.outp.ready.eq(0)
-        assert (yield m.outp.valid) == 1
-        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
-        assert (yield m.outp.payload.o) == 1
+        ctx.set(m.outp.ready, 0)
+        assert ctx.get(m.outp.valid) == 1
+        assert ctx.get(m.outp.payload.sign) == Sign.UNSIGNED
+        assert ctx.get(m.outp.payload.o) == 1
         # Pipeline should stall...
-        assert (yield m.inp.ready) == 0
-        yield Tick()
+        assert ctx.get(m.inp.ready) == 0
+        await ctx.tick()
 
         # Until we indicate we're ready to accept data.
-        yield m.outp.ready.eq(1)
-        assert (yield m.inp.ready) == 1
-        yield Tick()
+        ctx.set(m.outp.ready, 1)
+        assert ctx.get(m.inp.ready) == 1
+        await ctx.tick()
 
-        assert (yield m.outp.valid) == 1
-        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
-        assert (yield m.outp.payload.o) == 4
-        assert (yield m.inp.ready) == 1
-        yield Tick()
+        assert ctx.get(m.outp.valid) == 1
+        assert ctx.get(m.outp.payload.sign) == Sign.UNSIGNED
+        assert ctx.get(m.outp.payload.o) == 4
+        assert ctx.get(m.inp.ready) == 1
+        await ctx.tick()
 
-        assert (yield m.outp.valid) == 0
-        assert (yield m.inp.ready) == 1
-        yield Tick()
+        assert ctx.get(m.outp.valid) == 0
+        assert ctx.get(m.inp.ready) == 1
+        await ctx.tick()
 
-        assert (yield m.outp.valid) == 1
-        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
-        assert (yield m.outp.payload.o) == 9
-        assert (yield m.inp.ready) == 1
-        yield Tick()
+        assert ctx.get(m.outp.valid) == 1
+        assert ctx.get(m.outp.payload.sign) == Sign.UNSIGNED
+        assert ctx.get(m.outp.payload.o) == 9
+        assert ctx.get(m.inp.ready) == 1
+        await ctx.tick()
 
-        assert (yield m.outp.valid) == 1
-        assert (yield m.outp.payload.sign) == Sign.UNSIGNED
-        assert (yield m.outp.payload.o) == 16
-        assert (yield m.inp.ready) == 1
-        yield Tick()
+        assert ctx.get(m.outp.valid) == 1
+        assert ctx.get(m.outp.payload.sign) == Sign.UNSIGNED
+        assert ctx.get(m.outp.payload.o) == 16
+        assert ctx.get(m.inp.ready) == 1
+        await ctx.tick()
 
-        assert (yield m.outp.valid) == 0
-        assert (yield m.inp.ready) == 1
-        yield Tick()
+        assert ctx.get(m.outp.valid) == 0
+        assert ctx.get(m.inp.ready) == 1
+        await ctx.tick()
 
     return testbench
 

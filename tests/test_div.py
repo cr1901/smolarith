@@ -3,7 +3,6 @@
 import pytest
 from math import fmod
 from smolarith.div import Sign, LongDivider, MulticycleDiv, Impl
-from amaranth.sim import Tick
 import random
 
 
@@ -11,34 +10,32 @@ import random
 def basic_testbench(mod, values, delay):
     m = mod
 
-    def testbench():
+    async def testbench(ctx):
         (n, d, q, r, sign) = values
-        yield Tick()
+        await ctx.tick()
 
-        yield m.inp.payload.n.eq(n)
-        yield m.inp.payload.d.eq(d)
-        yield m.inp.payload.sign.eq(sign)
-        yield m.inp.valid.eq(1)
-        yield Tick()
+        ctx.set(m.inp.payload.n, n)
+        ctx.set(m.inp.payload.d, d)
+        ctx.set(m.inp.payload.sign, sign)
+        ctx.set(m.inp.valid, 1)
+        await ctx.tick()
 
-        yield m.inp.valid.eq(0)  # Only schedule one xfer.
-        yield m.outp.ready.eq(1)  # Immediately ready for retrieval.
-        yield Tick()
-        for _ in range(delay):
-            yield Tick()
+        ctx.set(m.inp.valid, 0)  # Only schedule one xfer.
+        ctx.set(m.outp.ready, 1)  # Immediately ready for retrieval.
+        await ctx.tick().repeat(delay + 1)
 
-        assert (yield m.outp.valid) == 1
-        assert (yield m.outp.payload.sign) == sign.value
+        assert ctx.get(m.outp.valid) == 1
+        assert ctx.get(m.outp.payload.sign) == sign.value
 
         if sign == Sign.UNSIGNED:
-            assert (yield m.outp.payload.q) == q
-            assert (yield m.outp.payload.r) == r
+            assert ctx.get(m.outp.payload.q) == q
+            assert ctx.get(m.outp.payload.r) == r
         else:
-            assert (yield m.outp.payload.q.as_signed()) == q
-            assert (yield m.outp.payload.r.as_signed()) == r
+            assert ctx.get(m.outp.payload.q.as_signed()) == q
+            assert ctx.get(m.outp.payload.r.as_signed()) == r
 
-        yield Tick()
-        assert (yield m.outp.valid) == 0
+        await ctx.tick()
+        assert ctx.get(m.outp.valid) == 0
 
     return testbench
 
@@ -50,70 +47,66 @@ def all_values_tb(request, mod, delay):
     sign = request.param
 
     if sign == Sign.SIGNED:
-        def tb():
-            yield Tick()
+        async def tb(ctx):
+            await ctx.tick()
 
             for n in range(-2**(m.width-1), 2**(m.width-1)):
-                yield m.inp.payload.n.eq(n)
+                ctx.set(m.inp.payload.n, n)
                 for d in range(-2**(m.width-1), 2**(m.width-1)):
-                    yield m.inp.payload.d.eq(d)
-                    yield m.inp.payload.sign.eq(Sign.SIGNED)
-                    yield m.inp.valid.eq(1)
-                    yield Tick()
+                    ctx.set(m.inp.payload.d, d)
+                    ctx.set(m.inp.payload.sign, Sign.SIGNED)
+                    ctx.set(m.inp.valid, 1)
+                    await ctx.tick()
 
-                    yield m.inp.valid.eq(0)  # Only schedule one xfer.
-                    yield m.outp.ready.eq(1)  # Immediately ready for retrieval.  # noqa: E501
-                    yield Tick()
-                    for _ in range(delay):
-                        yield Tick()
+                    ctx.set(m.inp.valid, 0)  # Only schedule one xfer.
+                    ctx.set(m.outp.ready, 1)  # Immediately ready for retrieval.  # noqa: E501
+                    await ctx.tick().repeat(delay + 1)
 
-                    assert (yield m.outp.valid) == 1
-                    assert (yield m.outp.payload.sign) == Sign.SIGNED.value
+                    assert ctx.get(m.outp.valid) == 1
+                    assert ctx.get(m.outp.payload.sign) == Sign.SIGNED.value
                     if n == -2**(m.width-1) and d == -1:
-                        assert (yield m.outp.payload.q.as_signed()) == \
+                        assert ctx.get(m.outp.payload.q.as_signed()) == \
                             -2**(m.width-1)
-                        assert (yield m.outp.payload.r.as_signed()) == 0
+                        assert ctx.get(m.outp.payload.r.as_signed()) == 0
                     elif d == 0:
-                        assert (yield m.outp.payload.q.as_signed()) == -1
-                        assert (yield m.outp.payload.r.as_signed()) == n
+                        assert ctx.get(m.outp.payload.q.as_signed()) == -1
+                        assert ctx.get(m.outp.payload.r.as_signed()) == n
                     else:
-                        assert (yield m.outp.payload.q.as_signed()) == \
+                        assert ctx.get(m.outp.payload.q.as_signed()) == \
                             int(n / d)
-                        assert (yield m.outp.payload.r.as_signed()) == \
+                        assert ctx.get(m.outp.payload.r.as_signed()) == \
                             fmod(n, d)
 
-                    yield Tick()
+                    await ctx.tick()
     else:  # Sign.UNSIGNED
-        def tb():
-            yield Tick()
+        async def tb(ctx):
+            await ctx.tick()
 
             for n in range(0, 2**m.width):
-                yield m.inp.payload.n.eq(n)
+                ctx.set(m.inp.payload.n, n)
                 for d in range(0, 2**m.width):
-                    yield m.inp.payload.d.eq(d)
-                    yield m.inp.payload.sign.eq(Sign.UNSIGNED)
-                    yield m.inp.valid.eq(1)
-                    yield Tick()
+                    ctx.set(m.inp.payload.d, d)
+                    ctx.set(m.inp.payload.sign, Sign.UNSIGNED)
+                    ctx.set(m.inp.valid, 1)
+                    await ctx.tick()
 
-                    yield m.inp.valid.eq(0)  # Only schedule one xfer.
-                    yield m.outp.ready.eq(1)  # Immediately ready for retrieval.  # noqa: E501
-                    yield Tick()
-                    for _ in range(delay):
-                        yield Tick()
+                    ctx.set(m.inp.valid, 0)  # Only schedule one xfer.
+                    ctx.set(m.outp.ready, 1)  # Immediately ready for retrieval.  # noqa: E501
+                    await ctx.tick().repeat(delay + 1)
 
-                    assert (yield m.outp.valid) == 1
-                    assert (yield m.outp.payload.sign) == Sign.UNSIGNED.value
+                    assert ctx.get(m.outp.valid) == 1
+                    assert ctx.get(m.outp.payload.sign) == Sign.UNSIGNED.value
                     if d == 0:
-                        assert (yield m.outp.payload.q.as_unsigned()) == \
+                        assert ctx.get(m.outp.payload.q.as_unsigned()) == \
                             2**m.width - 1
-                        assert (yield m.outp.payload.r.as_unsigned()) == n
+                        assert ctx.get(m.outp.payload.r.as_unsigned()) == n
                     else:
-                        assert (yield m.outp.payload.q.as_unsigned()) == \
+                        assert ctx.get(m.outp.payload.q.as_unsigned()) == \
                             int(n / d)
-                        assert (yield m.outp.payload.r.as_unsigned()) == \
+                        assert ctx.get(m.outp.payload.r.as_unsigned()) == \
                             fmod(n, d)
 
-                    yield Tick()
+                    await ctx.tick()
     
     return tb
 
@@ -152,50 +145,48 @@ def random_vals(mod):
 def random_values_tb(mod, random_vals, delay):
     m = mod
 
-    def tb():
-        yield Tick()
+    async def tb(ctx):
+        await ctx.tick()
 
         for (n, d, s) in random_vals:
-            yield m.inp.payload.n.eq(n)
-            yield m.inp.payload.d.eq(d)
-            yield m.inp.payload.sign.eq(s)
-            yield m.inp.valid.eq(1)
-            yield Tick()
+            ctx.set(m.inp.payload.n, n)
+            ctx.set(m.inp.payload.d, d)
+            ctx.set(m.inp.payload.sign, s)
+            ctx.set(m.inp.valid, 1)
+            await ctx.tick()
 
-            yield m.inp.valid.eq(0)  # Only schedule one xfer.
-            yield m.outp.ready.eq(1)  # Immediately ready for retrieval.  # noqa: E501
-            yield Tick()
-            for _ in range(delay):
-                yield Tick()
+            ctx.set(m.inp.valid, 0)  # Only schedule one xfer.
+            ctx.set(m.outp.ready, 1)  # Immediately ready for retrieval.  # noqa: E501
+            await ctx.tick().repeat(delay + 1)
 
-            assert (yield m.outp.valid) == 1
-            assert (yield m.outp.payload.sign) == s.value
+            assert ctx.get(m.outp.valid) == 1
+            assert ctx.get(m.outp.payload.sign) == s.value
 
             if s == Sign.SIGNED:
                 if n == -2**(m.width-1) and d == -1:
-                    assert (yield m.outp.payload.q.as_signed()) == \
+                    assert ctx.get(m.outp.payload.q.as_signed()) == \
                         -2**(m.width-1)
-                    assert (yield m.outp.payload.r.as_signed()) == 0
+                    assert ctx.get(m.outp.payload.r.as_signed()) == 0
                 elif d == 0:
-                    assert (yield m.outp.payload.q.as_signed()) == -1
-                    assert (yield m.outp.payload.r.as_signed()) == n
+                    assert ctx.get(m.outp.payload.q.as_signed()) == -1
+                    assert ctx.get(m.outp.payload.r.as_signed()) == n
                 else:
-                    assert (yield m.outp.payload.q.as_signed()) == \
+                    assert ctx.get(m.outp.payload.q.as_signed()) == \
                         int(n / d)
-                    assert (yield m.outp.payload.r.as_signed()) == \
+                    assert ctx.get(m.outp.payload.r.as_signed()) == \
                         fmod(n, d)
             else:
                 if d == 0:
-                    assert (yield m.outp.payload.q.as_unsigned()) == \
+                    assert ctx.get(m.outp.payload.q.as_unsigned()) == \
                         2**m.width - 1
-                    assert (yield m.outp.payload.r.as_unsigned()) == n
+                    assert ctx.get(m.outp.payload.r.as_unsigned()) == n
                 else:
-                    assert (yield m.outp.payload.q.as_unsigned()) == \
+                    assert ctx.get(m.outp.payload.q.as_unsigned()) == \
                         int(n / d)
-                    assert (yield m.outp.payload.r.as_unsigned()) == \
+                    assert ctx.get(m.outp.payload.r.as_unsigned()) == \
                         fmod(n, d)
 
-            yield Tick()
+            await ctx.tick()
 
     return tb
 
