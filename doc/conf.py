@@ -48,6 +48,7 @@ sys.path.append(os.path.abspath('../src'))
 
 extensions = ["myst_parser",
               "sphinx-prompt",
+              "sphinx_copybutton",
               "sphinx.ext.autodoc",
               "sphinx.ext.intersphinx",
               "sphinx_rtd_theme",

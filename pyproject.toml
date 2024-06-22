@@ -70,6 +70,7 @@ doc = [
     "sphinx-autobuild>=2021.3.14",
     "packaging>=24.0",  # Detect intersphinx mapping for amaranth, version for smolarith.
     "sphinx-prompt>=1.5.0",
+    "sphinx-copybutton>=0.5.2",
 ]
 lint = [
     "ruff>=0.2.2",
