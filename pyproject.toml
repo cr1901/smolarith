@@ -61,6 +61,7 @@ dev = [
     "pytest>=7.4.2",
     "pytest-sphinx>=0.6.0",
     "pytest-amaranth-sim @ git+https://github.com/cr1901/pytest-amaranth-sim",
+    "pytest-xdist>=3.6.1",
 ]
 doc = [
     "sphinx>=7.1.2",
