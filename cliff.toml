@@ -56,7 +56,7 @@ footer = """
         {% endif -%}
     {% else -%}
         {% if loop.index0 == 0 -%}
-            [Unreleased]: {{ self::remote_url() }}/compare/{{ release.previous.version }}..HEAD
+            [Unreleased]: {{ self::remote_url() }}/compare/{{ release.previous.version }}..next
         {% else -%}
             {{ throw(message="No release version found. Run 'git cliff --unreleased --tag [tag]'") }}
         {% endif -%}
