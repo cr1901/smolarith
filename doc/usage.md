@@ -31,7 +31,8 @@ to perform Celsius to Fahrenheit conversion, governed by the equation
 
 ```python
 from amaranth import signed, Module, C
-from amaranth.lib.wiring import Component, Signature, Out, In
+from amaranth.lib.wiring import Component, Out, In
+from amaranth.lib.stream import Signature
 from amaranth.back.verilog import convert
 from amaranth.sim import Simulator
 
@@ -65,16 +66,8 @@ class Celsius2Fahrenheit(Component):
                                            self.c_width))
 
         super().__init__({
-            "c": In(Signature({
-                "payload": Out(signed(self.c_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            })),
-            "f": Out(Signature({
-                "payload": Out(signed(self.f_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            }))
+            "c": In(Signature(signed(self.c_width))),
+            "f": Out(Signature(signed(self.f_width))),
         })
 
     def elaborate(self, plat):
@@ -177,7 +170,8 @@ Fahrenheit converter!
 I'm afraid... -->
 ```{testsetup}
 from amaranth import signed, Module, C
-from amaranth.lib.wiring import Component, Signature, Out, In
+from amaranth.lib.wiring import Component, Out, In
+from amaranth.lib.stream import Signature
 from amaranth.back.verilog import convert
 from amaranth.sim import Simulator
 
@@ -211,16 +205,8 @@ class Celsius2Fahrenheit(Component):
                                            self.c_width))
 
         super().__init__({
-            "c": In(Signature({
-                "payload": Out(signed(self.c_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            })),
-            "f": Out(Signature({
-                "payload": Out(signed(self.f_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            }))
+            "c": In(Signature(signed(self.c_width))),
+            "f": Out(Signature(signed(self.f_width))),
         })
 
     def elaborate(self, plat):
