@@ -123,7 +123,7 @@ def multiplier_input_signature(width):
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
         :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        shape :class:`Inputs`.
+        of :class:`Inputs`.
     """
     return stream.Signature(Inputs(width))
 
@@ -156,7 +156,7 @@ def multiplier_output_signature(width):
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
         :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        shape :class:`Outputs`.
+        of :class:`Outputs`.
     """
     return stream.Signature(Outputs(width))
 

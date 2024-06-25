@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [v0.2.0] - 2024-06-23
+## [v0.2.0] - 2024-06-25
 
 `v0.2.0` does not introduce any new functionality, and is a maintenance
 release. The minimum Amaranth version is now [`v0.5.0`](https://amaranth-lang.org/docs/amaranth/v0.5.0/)

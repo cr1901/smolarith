@@ -19,11 +19,16 @@ in a virtualenv) will now have access to `smolarith`.
 ## Usage
 `smolarith` modules all use Amaranth {doc}`streams <amaranth:stdlib/stream>`.
 Data transfer using Amaranth streams follow a minimal "valid-ready"
-unidirectional protocol. Therefore, each `smolarith` module has at least
-two streams; one stream to accept data from an initiator/producer, and
-another stream to return results, where the `smolarith` module is the
-initiator/producer. Detailed rules for stream transfers are explained in the
-{ref}`Amaranth docs <amaranth:stream-rules>`.
+unidirectional protocol. Each `smolarith` module has at least
+two streams:
+
+* One stream where the `smolarith` module accepts data from an initiator/producer;
+  i.e. the `smolarith` module is a responder/consumer.
+* Another stream to return results from the module; i.e. the `smolarith` module
+  is the initiator/producer.
+  
+Detailed rules for stream transfers are explained in the {ref}`Amaranth docs <amaranth:stream-rules>`.
+Unless otherwise noted, all stream directions are from the initiatior's point-of-view.
 
 Here is a self-contained example of a streaming core that uses {class}`~smolarith.mul.MulticycleMul`
 to perform Celsius to Fahrenheit conversion, governed by the equation

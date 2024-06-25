@@ -180,7 +180,7 @@ def binary_input_signature(width):
     -------
     :class:`~amaranth:amaranth.lib.stream.Signature`
         :class:`~amaranth:amaranth.lib.stream.Signature` with ``payload``
-        shape :py:func:`amaranth:amaranth.hdl.unsigned` (``width`` bits).
+        of :py:func:`amaranth:amaranth.hdl.unsigned` (``width`` bits).
     """
     return stream.Signature(width)
 
@@ -214,7 +214,7 @@ def _base1000_signature(num_digits):
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
         :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        shape :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
+        of :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
 
         The :class:`~amaranth:amaranth.lib.data.ArrayLayout` has length
         `num_digits` with :py:func:`amaranth:amaranth.hdl.unsigned` elements
@@ -253,7 +253,7 @@ def bcd_output_signature(num_digits):
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
         :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        shape :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
+        of :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
 
         The :class:`~amaranth:amaranth.lib.data.ArrayLayout` has length
         `num_digits` with :py:func:`amaranth:amaranth.hdl.unsigned` elements
