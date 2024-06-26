@@ -122,8 +122,7 @@ def multiplier_input_signature(width):
     Returns
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
-        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :class:`Inputs`.
+        :py:`Signature(Inputs)`
     """
     return stream.Signature(Inputs(width))
 
@@ -131,7 +130,7 @@ def multiplier_input_signature(width):
 def multiplier_output_signature(width):
     """Create a parametric multiplier output port.
 
-    This function returns a :class:`amaranth:amaranth.lib.stream.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator **from** a multiplier.
 
     .. note:: For a core responding **to** a multiplier, which is the typical
@@ -155,8 +154,7 @@ def multiplier_output_signature(width):
     Returns
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
-        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :class:`Outputs`.
+        :py:`Signature(Outputs)`
     """
     return stream.Signature(Outputs(width))
 

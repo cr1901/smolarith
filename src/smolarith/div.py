@@ -112,8 +112,7 @@ def divider_input_signature(width):
     Returns
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
-        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :class:`Inputs`.
+        :py:`Signature(Inputs)`
     """
     return stream.Signature(Inputs(width))
 
@@ -145,8 +144,7 @@ def divider_output_signature(width):
     Returns
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
-        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :class:`Outputs`.
+        :py:`Signature(Outputs)`
     """
     return stream.Signature(Outputs(width))
 

@@ -179,8 +179,7 @@ def binary_input_signature(width):
     Returns
     -------
     :class:`~amaranth:amaranth.lib.stream.Signature`
-        :class:`~amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :py:func:`amaranth:amaranth.hdl.unsigned` (``width`` bits).
+        :py:`Signature(unsigned(width))`
     """
     return stream.Signature(width)
 
@@ -212,13 +211,10 @@ def _base1000_signature(num_digits):
 
     Returns
     -------
-    :class:`amaranth:amaranth.lib.stream.Signature`
-        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
+    :class:`~amaranth:amaranth.lib.stream.Signature`
+        :py:`Signature(ArrayLayout(10, num_digits))`.
 
-        The :class:`~amaranth:amaranth.lib.data.ArrayLayout` has length
-        `num_digits` with :py:func:`amaranth:amaranth.hdl.unsigned` elements
-        that are 10 bits long. Each element represents a Base-1000 number
+        Each array element represents a Base-1000 number
         in base-2, where *it is assumed that each digit <= 999*.
     """
     return stream.Signature(ArrayLayout(10, num_digits))
@@ -252,12 +248,9 @@ def bcd_output_signature(num_digits):
     Returns
     -------
     :class:`amaranth:amaranth.lib.stream.Signature`
-        :class:`amaranth:amaranth.lib.stream.Signature` with ``payload``
-        of :class:`~amaranth:amaranth.lib.data.ArrayLayout`.
+        :py:`Signature(ArrayLayout(4, num_digits))`
 
-        The :class:`~amaranth:amaranth.lib.data.ArrayLayout` has length
-        `num_digits` with :py:func:`amaranth:amaranth.hdl.unsigned` elements
-        that are 4 bits long. Each element represents a Packed BCD number
+        Each array element represents a Packed BCD number
         in base-2, where *it is assumed that each digit <= 9*.
     """
     return stream.Signature(ArrayLayout(4, num_digits))
