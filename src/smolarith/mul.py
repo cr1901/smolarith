@@ -8,24 +8,29 @@ from amaranth.lib import stream
 from amaranth.lib.enum import IntEnum, auto
 
 
-class Sign(IntEnum):
+class Sign(IntEnum):  # noqa: DOC602,DOC603
     """Indicate the type of multiply to be performed.
 
-    * ``UNSIGNED``: Both inputs ``a`` and ``b`` are unsigned.
-      
-      The output is unsigned.
+    Attributes
+    ----------
+    UNSIGNED : int
+        Both inputs ``a`` and ``b`` are unsigned.
 
-    * ``SIGNED``: Both inputs ``a`` and ``b`` are unsigned.
-      
-      The output is signed.
+        The output is unsigned.
 
-    * ``SIGNED_UNSIGNED``: Input ``a`` is signed and input ``b`` is unsigned.
-      
-      The output is signed.
-       
-      Note that for :math:`n`-bit multiply with given bit patterns for ``a``
-      and ``b``, the bottom :math:`n/2` bits will be identical in an
-      ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply.
+    SIGNED: int
+        Both inputs ``a`` and ``b`` are signed.
+
+        The output is signed.
+
+    SIGNED_UNSIGNED: int
+        Input ``a`` is signed and input ``b`` is unsigned.
+
+        The output is signed.
+
+        Note that for an :math:`n`-bit multiply with given bit patterns for
+        ``a`` and ``b``, the bottom :math:`n/2` bits will be identical in an
+        ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply.
     """
 
     UNSIGNED = auto()
@@ -33,7 +38,7 @@ class Sign(IntEnum):
     SIGNED_UNSIGNED = auto()
 
 
-class Inputs(StructLayout):
+class Inputs(StructLayout):  # noqa: DOC602,DOC603
     r"""Tagged union representing the signedness of multiplier inputs.
     
     * When :attr:`sign` is ``UNSIGNED``, both :attr:`a` and :attr:`b` are
@@ -72,7 +77,7 @@ class Inputs(StructLayout):
         })
 
 
-class Outputs(StructLayout):
+class Outputs(StructLayout):  # noqa: DOC602,DOC603
     """Tagged union representing the signedness of multiplier output.
     
     * When :attr:`sign` is ``UNSIGNED``, :attr:`o` should be treated as a
@@ -159,7 +164,7 @@ def multiplier_output_signature(width):
     return stream.Signature(Outputs(width))
 
 
-class PipelinedMul(Component):
+class PipelinedMul(Component):  # noqa: DOC602,DOC603
     r"""Multiplier soft-core which pipelines inputs.
      
     This multiplier core has pipeline registers that stores intermediate
@@ -467,7 +472,7 @@ class PipelinedMul(Component):
         return m
 
 
-class MulticycleMul(Component):
+class MulticycleMul(Component):  # noqa: DOC602,DOC603
     r"""Multicycle multiplier soft-core.
 
     This multiplier core is a gateware implementation of shift-add
