@@ -1,9 +1,5 @@
 # `smolarith` Quickstart And Usage
 
-```{todo}
-Discuss how all cores in this library are stream-based.
-```
-
 ## Installation
 
 `smolarith` is available on [PyPI](https://pypi.org/p/smolarith/). Rather than
@@ -17,18 +13,31 @@ as a reference, you would fork that template and then run:
 pdm add smolarith
 ```
 
-All commands with invoke the Python interpreter that `pdm` is using (probably
+All commands which invoke the Python interpreter that `pdm` is using (probably
 in a virtualenv) will now have access to `smolarith`.
 
 ## Usage
-This section still needs to be fleshed out. In the interim, here is a
-self-contained example of a core that uses {class}`~smolarith.mul.MulticycleMul`
+`smolarith` modules all use Amaranth {doc}`streams <amaranth:stdlib/stream>`.
+Data transfer using Amaranth streams follow a minimal "valid-ready"
+unidirectional protocol. Each `smolarith` module has at least
+two streams:
+
+* One stream where the `smolarith` module accepts data from an initiator/producer;
+  i.e. the `smolarith` module is a responder/consumer.
+* Another stream to return results from the module; i.e. the `smolarith` module
+  is the initiator/producer.
+  
+Detailed rules for stream transfers are explained in the {ref}`Amaranth docs <amaranth:stream-rules>`.
+Unless otherwise noted, all stream directions are from the initiatior's point-of-view.
+
+Here is a self-contained example of a streaming core that uses {class}`~smolarith.mul.MulticycleMul`
 to perform Celsius to Fahrenheit conversion, governed by the equation
 {math}`F(t) = 1.8*C(t) + 32`:
 
 ```python
 from amaranth import signed, Module, C
-from amaranth.lib.wiring import Component, Signature, Out, In
+from amaranth.lib.wiring import Component, Out, In
+from amaranth.lib.stream import Signature
 from amaranth.back.verilog import convert
 from amaranth.sim import Simulator
 
@@ -56,22 +65,14 @@ class Celsius2Fahrenheit(Component):
         # Adjust to desired Fahrenheit precision.
         self.extra_bits = self.qc[1] + self.scale_const - self.qf[1]
 
-        # Output will be 2*max(self.mul_factor.width, self.c_width)...
+        # Output will be 2*max(len(self.mul_factor), self.c_width)...
         # more bits than we need.
-        self.mul = MulticycleMul(width=max(self.mul_factor.width,
+        self.mul = MulticycleMul(width=max(len(self.mul_factor),
                                            self.c_width))
 
         super().__init__({
-            "c": In(Signature({
-                "payload": Out(signed(self.c_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            })),
-            "f": Out(Signature({
-                "payload": Out(signed(self.f_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            }))
+            "c": In(Signature(signed(self.c_width))),
+            "f": Out(Signature(signed(self.f_width))),
         })
 
     def elaborate(self, plat):
@@ -100,26 +101,27 @@ def sim(*, c2f, start_c, end_c, gtkw=False):
     sim = Simulator(c2f)
     sim.add_clock(1e-6)
 
-    def proc():
-        yield c2f.f.ready.eq(1)
-        yield
+    async def tb(ctx):
+        await ctx.tick()
+
+        ctx.set(c2f.f.ready, 1)
+        await ctx.tick()
 
         for i in range(start_c, end_c):
-            yield c2f.c.payload.eq(i)
-            yield c2f.c.valid.eq(1)
-            yield
-            yield c2f.c.valid.eq(0)
+            ctx.set(c2f.c.payload, i)
+            ctx.set(c2f.c.valid, 1)
+            await ctx.tick()
+            ctx.set(c2f.c.valid, 0)
 
             # Wait for module to calculate results.
-            while (yield c2f.f.valid) != 1:
-                yield
+            await ctx.tick().until(c2f.f.valid == 1)
 
             # This is a low-effort attempt to print fixed-point numbers
             # by converting them into floating point.
-            print((yield c2f.c.payload) / 2**c2f.qc[1],
-                  (yield c2f.f.payload) / 2**c2f.qf[1])
+            print(ctx.get(c2f.c.payload) / 2**c2f.qc[1],
+                  ctx.get(c2f.f.payload) / 2**c2f.qf[1])
 
-    sim.add_sync_process(proc)
+    sim.add_testbench(tb)
 
     if gtkw:
         with sim.write_vcd("c2f.vcd", "c2f.gtkw"):
@@ -137,7 +139,7 @@ if __name__ == "__main__":
             start_c = int(float(sys.argv[2]) * 2**c2f.qc[1])
         else:
             start_c = -2**(c2f.qc[0] + c2f.qc[1] - 1)
-
+        
         if len(sys.argv) >= 3:
             end_c = int(float(sys.argv[3]) * 2**c2f.qc[1])
         else:
@@ -173,7 +175,8 @@ Fahrenheit converter!
 I'm afraid... -->
 ```{testsetup}
 from amaranth import signed, Module, C
-from amaranth.lib.wiring import Component, Signature, Out, In
+from amaranth.lib.wiring import Component, Out, In
+from amaranth.lib.stream import Signature
 from amaranth.back.verilog import convert
 from amaranth.sim import Simulator
 
@@ -201,22 +204,14 @@ class Celsius2Fahrenheit(Component):
         # Adjust to desired Fahrenheit precision.
         self.extra_bits = self.qc[1] + self.scale_const - self.qf[1]
 
-        # Output will be 2*max(self.mul_factor.width, self.c_width)...
+        # Output will be 2*max(len(self.mul_factor), self.c_width)...
         # more bits than we need.
-        self.mul = MulticycleMul(width=max(self.mul_factor.width,
+        self.mul = MulticycleMul(width=max(len(self.mul_factor),
                                            self.c_width))
 
         super().__init__({
-            "c": In(Signature({
-                "payload": Out(signed(self.c_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            })),
-            "f": Out(Signature({
-                "payload": Out(signed(self.f_width)),
-                "ready": In(1),
-                "valid": Out(1)
-            }))
+            "c": In(Signature(signed(self.c_width))),
+            "f": Out(Signature(signed(self.f_width))),
         })
 
     def elaborate(self, plat):
@@ -245,32 +240,53 @@ def sim(*, c2f, start_c, end_c, gtkw=False):
     sim = Simulator(c2f)
     sim.add_clock(1e-6)
 
-    def proc():
-        yield c2f.f.ready.eq(1)
-        yield
+    async def tb(ctx):
+        await ctx.tick()
+
+        ctx.set(c2f.f.ready, 1)
+        await ctx.tick()
 
         for i in range(start_c, end_c):
-            yield c2f.c.payload.eq(i)
-            yield c2f.c.valid.eq(1)
-            yield
-            yield c2f.c.valid.eq(0)
+            ctx.set(c2f.c.payload, i)
+            ctx.set(c2f.c.valid, 1)
+            await ctx.tick()
+            ctx.set(c2f.c.valid, 0)
 
             # Wait for module to calculate results.
-            while (yield c2f.f.valid) != 1:
-                yield
+            await ctx.tick().until(c2f.f.valid == 1)
 
             # This is a low-effort attempt to print fixed-point numbers
             # by converting them into floating point.
-            print((yield c2f.c.payload) / 2**c2f.qc[1],
-                  (yield c2f.f.payload) / 2**c2f.qf[1])
+            print(ctx.get(c2f.c.payload) / 2**c2f.qc[1],
+                  ctx.get(c2f.f.payload) / 2**c2f.qf[1])
 
-    sim.add_sync_process(proc)
+    sim.add_testbench(tb)
 
     if gtkw:
         with sim.write_vcd("c2f.vcd", "c2f.gtkw"):
             sim.run()
     else:
         sim.run()
+
+
+if __name__ == "__main__":
+    # See: https://en.wikipedia.org/wiki/Q_(number_format)
+    c2f = Celsius2Fahrenheit(qc=(8, 3), qf=(10, 3), scale_const=15)
+
+    if len(sys.argv) > 1 and sys.argv[1] == "sim":
+        if len(sys.argv) >= 2:
+            start_c = int(float(sys.argv[2]) * 2**c2f.qc[1])
+        else:
+            start_c = -2**(c2f.qc[0] + c2f.qc[1] - 1)
+        
+        if len(sys.argv) >= 3:
+            end_c = int(float(sys.argv[3]) * 2**c2f.qc[1])
+        else:
+            end_c = 2**(c2f.qc[0] + c2f.qc[1] - 1)
+
+        sim(c2f=c2f, start_c=start_c, end_c=end_c, gtkw=False)
+    else:
+        print(convert(c2f))
 ```
 
 ```{testcode}

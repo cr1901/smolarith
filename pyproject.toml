@@ -5,7 +5,7 @@ authors = [
     {name = "William D. Jones", email = "thor0505@comcast.net"},
 ]
 dependencies = [
-    "amaranth>=0.4.1",
+    "amaranth>=0.5.0",
 ]
 requires-python = ">=3.8"
 readme = "README.md"
@@ -27,20 +27,19 @@ dynamic = ["version"]
 documentation = "https://smolarith.readthedocs.io"
 repository = "https://github.com/cr1901/smolarith"
 
-
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
 [tool.pytest.ini_options]
-addopts = "--doctest-glob=\"*.md\""
+# examples dir will eventually be committed.
+addopts = "--doctest-glob=\"*.md\" --doctest-modules --ignore=examples"
 pythonpath = [
   "src/",
 ]
-markers = [
-  "clks: tuple of clocks to register for simulator.",
-  "module: top-level module to simulate."
-]
+required_plugins = "pytest-amaranth-sim"
+long_vcd_filenames = true
+extend_vcd_time = "41666666"  # extend by half a 12MHz period.
 
 [tool.ruff]
 src = [ "src", "tests" ]  # https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
@@ -61,19 +60,24 @@ write_to = "smolarith/version.txt"
 dev = [
     "pytest>=7.4.2",
     "pytest-sphinx>=0.6.0",
+    "pytest-amaranth-sim @ git+https://github.com/cr1901/pytest-amaranth-sim",
+    "pytest-xdist>=3.6.1",
 ]
 doc = [
     "sphinx>=7.1.2",
     "sphinx-rtd-theme>=2.0.0",
     "myst-parser>=2.0.0",
     "sphinx-autobuild>=2021.3.14",
+    "packaging>=24.0",  # Detect intersphinx mapping for amaranth, version for smolarith.
+    "sphinx-prompt>=1.5.0",
+    "sphinx-copybutton>=0.5.2",
 ]
 lint = [
     "ruff>=0.2.2",
     "pydoclint[flake8]>=0.4.1",
 ]
 builtin-yosys = [
-    "amaranth[builtin-yosys]>=0.4.1",
+    "amaranth[builtin-yosys]>=0.5.0",
 ]
 bench = [
     "doit>=0.36.0",
@@ -81,7 +85,7 @@ bench = [
 
 [tool.pdm.scripts]
 test = "pytest"
-lint = { composite = ["ruff check", "flake8", "doc-test"] }
+lint = { composite = ["ruff check", "flake8"] }
 bench = "doit stats"
 emit = "doit -r error-only emit_verilog"
 

@@ -2,28 +2,33 @@
 
 from amaranth import Elaboratable, Module, Signal, signed, C, unsigned
 from amaranth.lib.data import StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component
+from amaranth.lib.wiring import In, Out, Component
 from amaranth.lib.enum import Enum, auto
+from amaranth.lib import stream
 
 
 class Sign(Enum):
     """Indicate the type of divide to be performed.
 
-    * ``UNSIGNED``: Both inputs ``n`` and ``d`` are unsigned.
+    Attributes
+    ----------
+    UNSIGNED : int
+        Both inputs ``n`` and ``d`` are unsigned.
 
-      The output is unsigned.
+        The output is unsigned.
 
-    * ``SIGNED``: Both inputs ``n`` and ``d`` are unsigned.
+    SIGNED : int
+        Both inputs ``n`` and ``d`` are signed.
 
-      The quotient and remainder are signed. The remainder takes
-      the sign of the dividend.
+        The quotient and remainder are signed. The remainder takes
+        the sign of the dividend.
     """
 
     UNSIGNED = auto()
     SIGNED = auto()
 
 
-class Inputs(StructLayout):
+class Inputs(StructLayout):  # noqa: DOC602,DOC603
     r"""Tagged union representing the signedness of divider inputs.
 
     * When :attr:`sign` is ``UNSIGNED``, both :attr:`n` and :attr:`d` are
@@ -59,7 +64,7 @@ class Inputs(StructLayout):
         })
 
 
-class Outputs(StructLayout):
+class Outputs(StructLayout):  # noqa: DOC602,DOC603
     r"""Tagged union representing the signedness of divider outputs.
 
     * When :attr:`sign` is ``UNSIGNED``, :attr:`q` and :attr:`r` should be
@@ -98,7 +103,7 @@ class Outputs(StructLayout):
 def divider_input_signature(width):
     """Create a parametric divider input port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator to a divider. A divider starts
     on the current cycle when both ``valid`` and ``rdy`` are asserted.
 
@@ -110,39 +115,16 @@ def divider_input_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Inputs)
-            :noindex:
-
-            Data input to divider.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that divider is ready.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that divider data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :py:`Signature(Inputs)`
     """
-    return Signature({
-        "payload": Out(Inputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Inputs(width))
 
 
 def divider_output_signature(width):
     """Create a parametric divider output port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator **from** a divider.
 
     .. note:: For a core responding **to** a divider, which is the typical
@@ -165,40 +147,16 @@ def divider_output_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Outputs)
-            :noindex:
-
-            Data output **from** divider.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that responder is ready to receive results
-            from divider.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that divider output data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :py:`Signature(Outputs)`
     """
-    return Signature({
-        "payload": Out(Outputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Outputs(width))
 
 
 class _Quadrant(StructLayout):
     """Store sign information about divider inputs."""
 
-    def __init__(self):  # noqa: DOC
+    def __init__(self):  # noqa: DOC1
         super().__init__({
             "n": unsigned(1),
             "d": unsigned(1),
@@ -206,7 +164,7 @@ class _Quadrant(StructLayout):
 
 
 class _Negate(Component):
-    def __init__(self, width=8):  # noqa: DOC
+    def __init__(self, width=8):  # noqa: DOC1
         self.width = width
         super().__init__({
             "inp": In(self.width),
@@ -225,18 +183,21 @@ class _Negate(Component):
 class Impl(Enum):
     """Indicate the division algorithm to use inside a dividing component.
 
-    * ``RESTORING``: Use :ref:`restoring division <derive-res>` for the
-      internal divider. *This is a good default*.
+    Attributes
+    ----------
+    RESTORING : int
+        Use :ref:`restoring division <derive-res>` for the internal divider.
+        *This is a good default*.
 
-    * ``NON_RESTORING``: Use :ref:`non-restoring division <derive-nr>` for the
-      internal divider.
+    NON_RESTORING : int
+        Use :ref:`non-restoring division <derive-nr>` for the internal divider.
     """
 
     RESTORING = auto()
     NON_RESTORING = auto()
 
 
-class MulticycleDiv(Component):
+class MulticycleDiv(Component):  # noqa: DOC602,DOC603
     # FIXME: I can't be .. _latency label to work, even with :ref:`latency`...
     # always "undefined label"... huh?!
     r"""Restoring/Non-restoring divider soft-core.
@@ -448,10 +409,10 @@ class MulticycleDiv(Component):
         return m
 
 
-class _RestoringDiv(Component):
+class _RestoringDiv(Component):  # noqa: DOC602,DOC603
     """Unsigned-only restoring divider."""
 
-    def __init__(self, width=8):  # noqa: DOC
+    def __init__(self, width=8):  # noqa: DOC1
         self.width = width
         # sign Signals are unused- Sign.UNSIGNED is implicit.
         super().__init__({
@@ -515,7 +476,7 @@ class _RestoringDiv(Component):
 class _NonRestoringDiv(Component):
     """Unsigned-only non-restoring divider."""
 
-    def __init__(self, width=8):  # noqa: DOC
+    def __init__(self, width=8):  # noqa: DOC1
         self.width = width
         # sign Signals are unused- Sign.UNSIGNED is implicit.
         super().__init__({
@@ -607,7 +568,7 @@ class _NonRestoringDiv(Component):
         return m
 
 
-class LongDivider(Component):
+class LongDivider(Component):  # noqa: DOC602,DOC603
     r"""Long-division soft-core, used as a reference.
 
     This divider core is a gateware implementation of classic long division.
@@ -880,7 +841,7 @@ class LongDivider(Component):
 class _MagnitudeComparator(Elaboratable):
     """Compare the magnitude of two signed numbers."""
 
-    def __init__(self, width=8):  # noqa: DOC
+    def __init__(self, width=8):  # noqa: DOC1
         self.width = width
         self.dividend = Signal(signed(self.width))
         self.divisor = Signal(signed(self.width))

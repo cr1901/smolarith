@@ -4,8 +4,8 @@
 [metadata]
 groups = ["default", "dev", "doc", "lint", "builtin-yosys", "bench"]
 strategy = ["cross_platform"]
-lock_version = "4.4.1"
-content_hash = "sha256:f6d268b00670149b18580695f18553b6768789f9c8468dcb41f6a9a3c0f8f372"
+lock_version = "4.4.2"
+content_hash = "sha256:53b3e3103027b8127e81382fc94ac1cad82841493c7948c080698ffe740ad69c"
 
 [[package]]
 name = "alabaster"
@@ -35,15 +35,15 @@ files = [
 
 [[package]]
 name = "amaranth-yosys"
-version = "0.40.0.0.post95"
+version = "0.40.0.0.post93"
 requires_python = "~=3.8"
 summary = "Specialized WebAssembly build of Yosys used by Amaranth HDL"
 dependencies = [
     "importlib-resources>=1.4; python_version < \"3.9\"",
-    "wasmtime<22,>=1",
+    "wasmtime<20,>=1",
 ]
 files = [
-    {file = "amaranth_yosys-0.40.0.0.post95-py3-none-any.whl", hash = "sha256:b9b31e84e8889b60285c8f1b9b51e80dfa0f2df4ccc724dfc28ff8edb9e7a4b3"},
+    {file = "amaranth_yosys-0.40.0.0.post93-py3-none-any.whl", hash = "sha256:19d05157268e2d93c759c39a3999b7134f36bc9cba71233eac64a57f54bf267a"},
 ]
 
 [[package]]
@@ -247,6 +247,16 @@ files = [
 ]
 
 [[package]]
+name = "execnet"
+version = "2.1.1"
+requires_python = ">=3.8"
+summary = "execnet: rapid multi-Python deployment"
+files = [
+    {file = "execnet-2.1.1-py3-none-any.whl", hash = "sha256:26dee51f1b80cebd6d0ca8e74dd8745419761d3bef34163928cbebbdc4749fdc"},
+    {file = "execnet-2.1.1.tar.gz", hash = "sha256:5189b52c6121c24feae288166ab41b32549c7e2348652736540b9e6e7d4e72e3"},
+]
+
+[[package]]
 name = "flake8"
 version = "5.0.4"
 requires_python = ">=3.6.1"
@@ -283,15 +293,15 @@ files = [
 
 [[package]]
 name = "importlib-metadata"
-version = "7.2.1"
+version = "8.0.0"
 requires_python = ">=3.8"
 summary = "Read metadata from Python packages"
 dependencies = [
     "zipp>=0.5",
 ]
 files = [
-    {file = "importlib_metadata-7.2.1-py3-none-any.whl", hash = "sha256:ffef94b0b66046dd8ea2d619b701fe978d9264d38f3998bc4c27ec3b146a87c8"},
-    {file = "importlib_metadata-7.2.1.tar.gz", hash = "sha256:509ecb2ab77071db5137c655e24ceb3eee66e7bbc6574165d0d114d9fc4bbe68"},
+    {file = "importlib_metadata-8.0.0-py3-none-any.whl", hash = "sha256:15584cf2b1bf449d98ff8a6ff1abef57bf20f3ac6454f431736cd3e660921b2f"},
+    {file = "importlib_metadata-8.0.0.tar.gz", hash = "sha256:188bd24e4c346d3f0a933f275c2fec67050326a856b9a359881d7c2a697e8812"},
 ]
 
 [[package]]
@@ -305,6 +315,16 @@ dependencies = [
 files = [
     {file = "importlib_resources-6.4.0-py3-none-any.whl", hash = "sha256:50d10f043df931902d4194ea07ec57960f66a80449ff867bfe782b4c486ba78c"},
     {file = "importlib_resources-6.4.0.tar.gz", hash = "sha256:cdb2b453b8046ca4e3798eb1d84f3cce1446a0e8e7b5ef4efb600f19fc398145"},
+]
+
+[[package]]
+name = "in-place"
+version = "1.0.0"
+requires_python = ">=3.8"
+summary = "In-place file processing"
+files = [
+    {file = "in_place-1.0.0-py3-none-any.whl", hash = "sha256:df6781ae341cd57b0894a2e56dc6f7b1daad1235550313c004686dd19eba7fcd"},
+    {file = "in_place-1.0.0.tar.gz", hash = "sha256:503048e91e0736cb092787c8017dce1328a62421f8fb81c29d25854c355af5ac"},
 ]
 
 [[package]]
@@ -511,32 +531,32 @@ files = [
 
 [[package]]
 name = "pydoclint"
-version = "0.5.0"
+version = "0.5.1"
 requires_python = ">=3.8"
 summary = "A Python docstring linter that checks arguments, returns, yields, and raises sections"
 dependencies = [
     "click>=8.1.0",
-    "docstring-parser-fork>=0.0.7",
+    "docstring-parser-fork>=0.0.8",
     "tomli>=2.0.1; python_version < \"3.11\"",
 ]
 files = [
-    {file = "pydoclint-0.5.0-py2.py3-none-any.whl", hash = "sha256:11c08ceb7179d5e99c9ddca02eedaced11e2cbf61f41df75eb5b7d2900d83458"},
-    {file = "pydoclint-0.5.0.tar.gz", hash = "sha256:f166728424e46622fd1c77e156fc57623d3d040651b2f2292f7536260eb0c12b"},
+    {file = "pydoclint-0.5.1-py2.py3-none-any.whl", hash = "sha256:198cc7d80e7701e340466783b5c461d062622832f8ea7b4af66a1901c7df8a95"},
+    {file = "pydoclint-0.5.1.tar.gz", hash = "sha256:380fcd5f14ef9781605f81db76a55f5781972cbf2a902282eab0c6566743860b"},
 ]
 
 [[package]]
 name = "pydoclint"
-version = "0.5.0"
+version = "0.5.1"
 extras = ["flake8"]
 requires_python = ">=3.8"
 summary = "A Python docstring linter that checks arguments, returns, yields, and raises sections"
 dependencies = [
     "flake8>=4",
-    "pydoclint==0.5.0",
+    "pydoclint==0.5.1",
 ]
 files = [
-    {file = "pydoclint-0.5.0-py2.py3-none-any.whl", hash = "sha256:11c08ceb7179d5e99c9ddca02eedaced11e2cbf61f41df75eb5b7d2900d83458"},
-    {file = "pydoclint-0.5.0.tar.gz", hash = "sha256:f166728424e46622fd1c77e156fc57623d3d040651b2f2292f7536260eb0c12b"},
+    {file = "pydoclint-0.5.1-py2.py3-none-any.whl", hash = "sha256:198cc7d80e7701e340466783b5c461d062622832f8ea7b4af66a1901c7df8a95"},
+    {file = "pydoclint-0.5.1.tar.gz", hash = "sha256:380fcd5f14ef9781605f81db76a55f5781972cbf2a902282eab0c6566743860b"},
 ]
 
 [[package]]
@@ -578,6 +598,19 @@ files = [
 ]
 
 [[package]]
+name = "pytest-amaranth-sim"
+version = "0.1.dev15"
+requires_python = ">=3.8"
+git = "https://github.com/cr1901/pytest-amaranth-sim"
+revision = "dadf48c93be8f41c8cbacb66f7f7e184eb1dceed"
+summary = "Fixture to automate running Amaranth simulations"
+dependencies = [
+    "amaranth>=0.5.0",
+    "in-place>=1.0.0",
+    "pytest>=6.2.0",
+]
+
+[[package]]
 name = "pytest-sphinx"
 version = "0.6.3"
 requires_python = ">=3.8"
@@ -588,6 +621,20 @@ dependencies = [
 files = [
     {file = "pytest_sphinx-0.6.3-py3-none-any.whl", hash = "sha256:856e760e64dfbfc89e362e187d641140a267b97881d3ef8aeefb72cc8438ac40"},
     {file = "pytest_sphinx-0.6.3.tar.gz", hash = "sha256:3b63c8181b9de6a5e5c9826d1b4dc0c827245bec8e64c9f16f269be08be5ecd5"},
+]
+
+[[package]]
+name = "pytest-xdist"
+version = "3.6.1"
+requires_python = ">=3.8"
+summary = "pytest xdist plugin for distributed testing, most importantly across multiple CPUs"
+dependencies = [
+    "execnet>=2.1",
+    "pytest>=7.0.0",
+]
+files = [
+    {file = "pytest_xdist-3.6.1-py3-none-any.whl", hash = "sha256:9ed4adfb68a016610848639bb7e02c9352d5d9f03d04809919e2dafc3be4cca7"},
+    {file = "pytest_xdist-3.6.1.tar.gz", hash = "sha256:ead156a4db231eec769737f57668ef58a2084a34b2e55c4a8fa20d861107300d"},
 ]
 
 [[package]]
@@ -761,6 +808,31 @@ files = [
 ]
 
 [[package]]
+name = "sphinx-copybutton"
+version = "0.5.2"
+requires_python = ">=3.7"
+summary = "Add a copy button to each of your code cells."
+dependencies = [
+    "sphinx>=1.8",
+]
+files = [
+    {file = "sphinx-copybutton-0.5.2.tar.gz", hash = "sha256:4cf17c82fb9646d1bc9ca92ac280813a3b605d8c421225fd9913154103ee1fbd"},
+    {file = "sphinx_copybutton-0.5.2-py3-none-any.whl", hash = "sha256:fb543fd386d917746c9a2c50360c7905b605726b9355cd26e9974857afeae06e"},
+]
+
+[[package]]
+name = "sphinx-prompt"
+version = "1.5.0"
+summary = "Sphinx directive to add unselectable prompt"
+dependencies = [
+    "Sphinx",
+    "pygments",
+]
+files = [
+    {file = "sphinx_prompt-1.5.0-py3-none-any.whl", hash = "sha256:fa4e90d8088b5a996c76087d701fc7e31175f8b9dc4aab03a507e45051067162"},
+]
+
+[[package]]
 name = "sphinx-rtd-theme"
 version = "2.0.0"
 requires_python = ">=3.6"
@@ -889,16 +961,16 @@ files = [
 
 [[package]]
 name = "wasmtime"
-version = "18.0.0"
+version = "19.0.0"
 requires_python = ">=3.8"
 summary = "A WebAssembly runtime powered by Wasmtime"
 files = [
-    {file = "wasmtime-18.0.0-py3-none-any.whl", hash = "sha256:0bdb0aa5f742d457efe39e1c494a26b8c26718aea90aeae15680ff2bae9ff06e"},
-    {file = "wasmtime-18.0.0-py3-none-macosx_10_13_x86_64.whl", hash = "sha256:543435f24dd951ac9145481a2f61c9416bea149c4879ed174af9b0d1bae1d5e8"},
-    {file = "wasmtime-18.0.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:af6d54470b3dacc3607d554e356b00cc6ebc002793f3db4fdc60a2cbe3af9694"},
-    {file = "wasmtime-18.0.0-py3-none-manylinux1_x86_64.whl", hash = "sha256:b7b3d5a152b572df48c89cdfd14ae53a03eacaeb5476661470640eade98829b1"},
-    {file = "wasmtime-18.0.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:d22e1ac6804e5175b8c98976e93e62dbd097d87d18ab2b306a50560a336680e3"},
-    {file = "wasmtime-18.0.0-py3-none-win_amd64.whl", hash = "sha256:c76b1d97dae06afadc6e960d5ab9626d88404f779da038347da7cf66cef4e74e"},
+    {file = "wasmtime-19.0.0-py3-none-any.whl", hash = "sha256:229075695c97d3220336ab08a0cf6350c6f29b29663b3530d25a9d8aa59db801"},
+    {file = "wasmtime-19.0.0-py3-none-macosx_10_13_x86_64.whl", hash = "sha256:43fb95b952b4387a852834477d8d094f3891cdccd4c0f6c8833cfafb5ec8d35b"},
+    {file = "wasmtime-19.0.0-py3-none-macosx_11_0_arm64.whl", hash = "sha256:6e0625e3d9b5fa850f6098fad3d081f496095f4705c76bf88144d3dec20e6557"},
+    {file = "wasmtime-19.0.0-py3-none-manylinux1_x86_64.whl", hash = "sha256:d844128add3ba40d3a667115812ed8064089a76e775c49dc4d43dcf034c15436"},
+    {file = "wasmtime-19.0.0-py3-none-manylinux2014_aarch64.whl", hash = "sha256:85890d926adad42dbfe5a772796f452fc42f87a4fda3b982cea842c52dbf734f"},
+    {file = "wasmtime-19.0.0-py3-none-win_amd64.whl", hash = "sha256:7b8eb96d270e042442389a3d13c1d51b44c55e5d53c27e33a934d22ef6e2a95f"},
 ]
 
 [[package]]

@@ -2,29 +2,35 @@
 
 from amaranth import Module, Signal, signed, unsigned
 from amaranth.lib.data import ArrayLayout, StructLayout
-from amaranth.lib.wiring import Signature, In, Out, Component
+from amaranth.lib.wiring import In, Out, Component
+from amaranth.lib import stream
 
 from amaranth.lib.enum import IntEnum, auto
 
 
-class Sign(IntEnum):
+class Sign(IntEnum):  # noqa: DOC602,DOC603
     """Indicate the type of multiply to be performed.
 
-    * ``UNSIGNED``: Both inputs ``a`` and ``b`` are unsigned.
-      
-      The output is unsigned.
+    Attributes
+    ----------
+    UNSIGNED : int
+        Both inputs ``a`` and ``b`` are unsigned.
 
-    * ``SIGNED``: Both inputs ``a`` and ``b`` are unsigned.
-      
-      The output is signed.
+        The output is unsigned.
 
-    * ``SIGNED_UNSIGNED``: Input ``a`` is signed and input ``b`` is unsigned.
-      
-      The output is signed.
-       
-      Note that for :math:`n`-bit multiply with given bit patterns for ``a``
-      and ``b``, the bottom :math:`n/2` bits will be identical in an
-      ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply.
+    SIGNED: int
+        Both inputs ``a`` and ``b`` are signed.
+
+        The output is signed.
+
+    SIGNED_UNSIGNED: int
+        Input ``a`` is signed and input ``b`` is unsigned.
+
+        The output is signed.
+
+        Note that for an :math:`n`-bit multiply with given bit patterns for
+        ``a`` and ``b``, the bottom :math:`n/2` bits will be identical in an
+        ``UNSIGNED`` or ``SIGNED_UNSIGNED`` multiply.
     """
 
     UNSIGNED = auto()
@@ -32,7 +38,7 @@ class Sign(IntEnum):
     SIGNED_UNSIGNED = auto()
 
 
-class Inputs(StructLayout):
+class Inputs(StructLayout):  # noqa: DOC602,DOC603
     r"""Tagged union representing the signedness of multiplier inputs.
     
     * When :attr:`sign` is ``UNSIGNED``, both :attr:`a` and :attr:`b` are
@@ -71,7 +77,7 @@ class Inputs(StructLayout):
         })
 
 
-class Outputs(StructLayout):
+class Outputs(StructLayout):  # noqa: DOC602,DOC603
     """Tagged union representing the signedness of multiplier output.
     
     * When :attr:`sign` is ``UNSIGNED``, :attr:`o` should be treated as a
@@ -108,7 +114,7 @@ class Outputs(StructLayout):
 def multiplier_input_signature(width):
     """Create a parametric multiplier input port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator to a multiplier. A multiply starts
     on the current cycle when both ``valid`` and ``rdy`` are asserted.
 
@@ -120,39 +126,16 @@ def multiplier_input_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Inputs)
-            :noindex:
-
-            Data input to multiplier.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that multiplier is ready.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that multiplier data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :py:`Signature(Inputs)`
     """
-    return Signature({
-        "payload": Out(Inputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Inputs(width))
 
 
 def multiplier_output_signature(width):
     """Create a parametric multiplier output port.
 
-    This function returns a :class:`~amaranth:amaranth.lib.wiring.Signature`
+    This function returns a :class:`~amaranth:amaranth.lib.stream.Signature`
     that's usable as a transfer initiator **from** a multiplier.
 
     .. note:: For a core responding **to** a multiplier, which is the typical
@@ -175,38 +158,13 @@ def multiplier_output_signature(width):
 
     Returns
     -------
-    :class:`~amaranth:amaranth.lib.wiring.Signature`
-        :class:`~amaranth:amaranth.lib.wiring.Signature` containing the
-        following members:
-
-        .. attribute:: .payload
-            :type: Out(Outputs)
-            :noindex:
-
-            Data output **from** multiplier.
-
-        .. attribute:: .ready
-            :type: In(1)
-            :noindex:
-
-            When ``1``, indicates that responder is ready to receive results
-            from multiplier.
-
-        .. attribute:: .valid
-            :type: Out(1)
-            :noindex:
-
-            When ``1``, indicates that multiplier output data input is valid.
+    :class:`amaranth:amaranth.lib.stream.Signature`
+        :py:`Signature(Outputs)`
     """
-    return Signature({
-        "payload": Out(Outputs(width)),
-        "ready": In(1),
-        "valid": Out(1)
-    })
+    return stream.Signature(Outputs(width))
 
 
-
-class PipelinedMul(Component):
+class PipelinedMul(Component):  # noqa: DOC602,DOC603
     r"""Multiplier soft-core which pipelines inputs.
      
     This multiplier core has pipeline registers that stores intermediate
@@ -429,7 +387,7 @@ class PipelinedMul(Component):
         # If the output isn't valid, we can accept another multiply. If
         # the output _is_ valid, we can only accept accept another multiply
         # if the output is being read this cycle.
-        m.d.comb += self.inp.ready.eq(self.outp.valid.implies(self.outp.ready))
+        m.d.comb += self.inp.ready.eq(~self.outp.valid | self.outp.ready)
         m.d.sync += pipeline_in[0].v.eq(0)
 
         with m.If(self.inp.ready & self.inp.valid):
@@ -514,7 +472,7 @@ class PipelinedMul(Component):
         return m
 
 
-class MulticycleMul(Component):
+class MulticycleMul(Component):  # noqa: DOC602,DOC603
     r"""Multicycle multiplier soft-core.
 
     This multiplier core is a gateware implementation of shift-add

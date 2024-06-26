@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.2.0] - 2024-06-25
+
+`v0.2.0` does not introduce any new functionality, and is a maintenance
+release. The minimum Amaranth version is now [`v0.5.0`](https://amaranth-lang.org/docs/amaranth/v0.5.0/)
+to take advantage of its streams implementation.
+
+### Added
+- Use [renovate](https://www.mend.io/renovate/) to automatically update deps
+  and lockfiles.
+
+  - Mostly applies to lockfiles, due to [default PDM bounds](https://iscinumpy.dev/post/bound-version-constraints/).
+
+- Add some pytest plugins:
+
+  - Use [`pytest-xdist`](https://pypi.org/project/pytest-xdist/) to parallelize tests.
+  
+  - Use [`pytest-amaranth-sim`](https://github.com/cr1901/pytest-amaranth-sim) to
+    factor out simulation setup and writing VCD files.
+
+- Add [`sphinx-prompt`](https://github.com/sbrunner/sphinx-prompt) and
+  [`sphinx_copybutton`](https://sphinx-copybutton.readthedocs.io/en/latest/)
+  plugins to improve code snippet ergonomics.
+
+- Add missing LICENSE.md file.
+
+
+### Changed
+- Use Amaranth `v0.5.0` from PyPI as minimal version.
+
+- Convert modules to use Amaranth streams instead of custom Signatures.
+
+  - Nominally compatible with smolarith `v0.1.x`, but the Amaranth version
+    bump warrants a minor release bump.
+
+- Simulation tests now use [`async` functions](https://amaranth-lang.org/docs/amaranth/v0.5.0/simulator.html#testing-synchronous-circuits)
+  and [`testbench`](https://amaranth-lang.org/docs/amaranth/v0.5.0/simulator.html#amaranth.sim.SimulatorContext.set)
+  semantics (signal updates occur immediately, not at the the next clock edge).
+
+- Refactor tests:
+
+  - Take advantage of the [combination](https://docs.pytest.org/en/7.1.x/how-to/fixtures.html#override-a-parametrized-fixture-with-non-parametrized-one-and-vice-versa) of
+    fixture parameterization direct test parameterization to clean up tests and
+    reduce test code duplication.
+
+  - Flatten test directory structure.
+
+  - Improve (mul) and add (div) random value testbenches.
+
+- Use PDM to install RTD dependencies.
+
+- Quality-of-life changes for DoIt tasks. Tasks are meant mostly for my
+  internal use.
+
+- Use [`dynamic` version](https://setuptools.pypa.io/en/latest/userguide/pyproject_config.html#dynamic-metadata)
+  based on `git` tags. Because I keep forgetting to update it manually :).
+
+
+### Fixed
+- Correct license type (was MIT, BSD 2-Clause intended).
+
 
 ## [v0.1.1] - 2024-03-05
 
@@ -51,7 +111,8 @@ Initial release.
   [RISC-V specification](https://github.com/riscv/riscv-isa-manual/releases/tag/Ratified-IMAFDQC)
   for division-by-zero, signed overflow, and remainder sign.
 
-[Unreleased]: https://github.com/cr1901/smolarith/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/cr1901/smolarith/compare/v0.2.0..next
+[0.2.0]: https://github.com/cr1901/smolarith/compare/v0.1.1..v0.2.0
 [v0.1.1]: https://github.com/cr1901/smolarith/compare/v0.1.0..v0.1.1
 [v0.1.0]: https://github.com/cr1901/smolarith/releases/tag/v0.1.0
 
