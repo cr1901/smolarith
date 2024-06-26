@@ -2,6 +2,8 @@ on:
   push:
     branches-ignore:
       - renovate/*
+    tags:
+      - v*
   pull_request:
   merge_group:
 
@@ -48,7 +50,7 @@ jobs:
     # https://github.com/pypa/build/issues/745
     - name: Build package
       run: |
-        pip install build==1.0.3 
+        pip install build
         python -m build
     - name: Verify package metadata
       run: |
