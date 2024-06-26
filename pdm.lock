@@ -4,8 +4,8 @@
 [metadata]
 groups = ["default", "dev", "doc", "lint", "builtin-yosys", "bench"]
 strategy = ["cross_platform"]
-lock_version = "4.4.1"
-content_hash = "sha256:74407dde276578ad73f4787596af389dcc24d0589098be8be881bf162ff96a4b"
+lock_version = "4.4.2"
+content_hash = "sha256:53b3e3103027b8127e81382fc94ac1cad82841493c7948c080698ffe740ad69c"
 
 [[package]]
 name = "alabaster"
@@ -204,12 +204,12 @@ files = [
 
 [[package]]
 name = "docstring-parser-fork"
-version = "0.0.5"
-requires_python = ">=3.6,<4.0"
+version = "0.0.8"
+requires_python = "<4.0,>=3.7"
 summary = "Parse Python docstrings in reST, Google and Numpydoc format"
 files = [
-    {file = "docstring_parser_fork-0.0.5-py3-none-any.whl", hash = "sha256:d521dea9b9cc6c60ab5569fa0c1115e3b84a83e6413266fb111a7c81cb935997"},
-    {file = "docstring_parser_fork-0.0.5.tar.gz", hash = "sha256:395ae8ee6a359e268670ebc4fe9a40dab917a94f6decd7cda8e86f9bea5c9456"},
+    {file = "docstring_parser_fork-0.0.8-py3-none-any.whl", hash = "sha256:88098ae01b0909b241954ad2c50c0c29ec2292223366a540bfd68332be8fd595"},
+    {file = "docstring_parser_fork-0.0.8.tar.gz", hash = "sha256:59d3b00d42ba9f4e229a7df7e1f6fc742845f88a1190973cc33ba336a5405425"},
 ]
 
 [[package]]
@@ -293,15 +293,15 @@ files = [
 
 [[package]]
 name = "importlib-metadata"
-version = "7.1.0"
+version = "8.0.0"
 requires_python = ">=3.8"
 summary = "Read metadata from Python packages"
 dependencies = [
     "zipp>=0.5",
 ]
 files = [
-    {file = "importlib_metadata-7.1.0-py3-none-any.whl", hash = "sha256:30962b96c0c223483ed6cc7280e7f0199feb01a0e40cfae4d4450fc6fab1f570"},
-    {file = "importlib_metadata-7.1.0.tar.gz", hash = "sha256:b78938b926ee8d5f020fc4772d487045805a55ddbad2ecf21c6d60938dc7fcd2"},
+    {file = "importlib_metadata-8.0.0-py3-none-any.whl", hash = "sha256:15584cf2b1bf449d98ff8a6ff1abef57bf20f3ac6454f431736cd3e660921b2f"},
+    {file = "importlib_metadata-8.0.0.tar.gz", hash = "sha256:188bd24e4c346d3f0a933f275c2fec67050326a856b9a359881d7c2a697e8812"},
 ]
 
 [[package]]
@@ -365,15 +365,15 @@ files = [
 
 [[package]]
 name = "livereload"
-version = "2.6.3"
+version = "2.7.0"
+requires_python = ">=3.7"
 summary = "Python LiveReload is an awesome tool for web developers"
 dependencies = [
-    "six",
-    "tornado; python_version > \"2.7\"",
+    "tornado",
 ]
 files = [
-    {file = "livereload-2.6.3-py2.py3-none-any.whl", hash = "sha256:ad4ac6f53b2d62bb6ce1a5e6e96f1f00976a32348afedcb4b6d68df2a1d346e4"},
-    {file = "livereload-2.6.3.tar.gz", hash = "sha256:776f2f865e59fde56490a56bcc6773b6917366bce0c267c60ee8aaf1a0959869"},
+    {file = "livereload-2.7.0-py3-none-any.whl", hash = "sha256:19bee55aff51d5ade6ede0dc709189a0f904d3b906d3ea71641ed548acff3246"},
+    {file = "livereload-2.7.0.tar.gz", hash = "sha256:f4ba199ef93248902841e298670eebfe1aa9e148e19b343bc57dbf1b74de0513"},
 ]
 
 [[package]]
@@ -531,32 +531,32 @@ files = [
 
 [[package]]
 name = "pydoclint"
-version = "0.4.1"
+version = "0.5.1"
 requires_python = ">=3.8"
 summary = "A Python docstring linter that checks arguments, returns, yields, and raises sections"
 dependencies = [
     "click>=8.1.0",
-    "docstring-parser-fork>=0.0.5",
+    "docstring-parser-fork>=0.0.8",
     "tomli>=2.0.1; python_version < \"3.11\"",
 ]
 files = [
-    {file = "pydoclint-0.4.1-py2.py3-none-any.whl", hash = "sha256:4e32fdf0a47a2199377617f09af0a82a2157f80543026f919a17112a396e752f"},
-    {file = "pydoclint-0.4.1.tar.gz", hash = "sha256:d39ed26a793203afadb1917011710fbf258ac3dddcd79b53212e0a2107221643"},
+    {file = "pydoclint-0.5.1-py2.py3-none-any.whl", hash = "sha256:198cc7d80e7701e340466783b5c461d062622832f8ea7b4af66a1901c7df8a95"},
+    {file = "pydoclint-0.5.1.tar.gz", hash = "sha256:380fcd5f14ef9781605f81db76a55f5781972cbf2a902282eab0c6566743860b"},
 ]
 
 [[package]]
 name = "pydoclint"
-version = "0.4.1"
+version = "0.5.1"
 extras = ["flake8"]
 requires_python = ">=3.8"
 summary = "A Python docstring linter that checks arguments, returns, yields, and raises sections"
 dependencies = [
     "flake8>=4",
-    "pydoclint==0.4.1",
+    "pydoclint==0.5.1",
 ]
 files = [
-    {file = "pydoclint-0.4.1-py2.py3-none-any.whl", hash = "sha256:4e32fdf0a47a2199377617f09af0a82a2157f80543026f919a17112a396e752f"},
-    {file = "pydoclint-0.4.1.tar.gz", hash = "sha256:d39ed26a793203afadb1917011710fbf258ac3dddcd79b53212e0a2107221643"},
+    {file = "pydoclint-0.5.1-py2.py3-none-any.whl", hash = "sha256:198cc7d80e7701e340466783b5c461d062622832f8ea7b4af66a1901c7df8a95"},
+    {file = "pydoclint-0.5.1.tar.gz", hash = "sha256:380fcd5f14ef9781605f81db76a55f5781972cbf2a902282eab0c6566743860b"},
 ]
 
 [[package]]
@@ -752,16 +752,6 @@ files = [
     {file = "ruff-0.4.10-py3-none-win_amd64.whl", hash = "sha256:67f67cef43c55ffc8cc59e8e0b97e9e60b4837c8f21e8ab5ffd5d66e196e25f7"},
     {file = "ruff-0.4.10-py3-none-win_arm64.whl", hash = "sha256:dd1fcee327c20addac7916ca4e2653fbbf2e8388d8a6477ce5b4e986b68ae6c0"},
     {file = "ruff-0.4.10.tar.gz", hash = "sha256:3aa4f2bc388a30d346c56524f7cacca85945ba124945fe489952aadb6b5cd804"},
-]
-
-[[package]]
-name = "six"
-version = "1.16.0"
-requires_python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*"
-summary = "Python 2 and 3 compatibility utilities"
-files = [
-    {file = "six-1.16.0-py2.py3-none-any.whl", hash = "sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254"},
-    {file = "six-1.16.0.tar.gz", hash = "sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926"},
 ]
 
 [[package]]
@@ -961,12 +951,12 @@ files = [
 
 [[package]]
 name = "urllib3"
-version = "2.2.1"
+version = "2.2.2"
 requires_python = ">=3.8"
 summary = "HTTP library with thread-safe connection pooling, file post, and more."
 files = [
-    {file = "urllib3-2.2.1-py3-none-any.whl", hash = "sha256:450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d"},
-    {file = "urllib3-2.2.1.tar.gz", hash = "sha256:d0570876c61ab9e520d776c38acbbb5b05a776d3f9ff98a5c8fd5162a444cf19"},
+    {file = "urllib3-2.2.2-py3-none-any.whl", hash = "sha256:a448b2f64d686155468037e1ace9f2d2199776e17f0a46610480d311f73e3472"},
+    {file = "urllib3-2.2.2.tar.gz", hash = "sha256:dd505485549a7a552833da5e6063639d0d177c04f23bc3864e41e5dc5f612168"},
 ]
 
 [[package]]
