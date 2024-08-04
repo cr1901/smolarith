@@ -22,7 +22,7 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.5.0"
+version = "0.5.1"
 requires_python = "~=3.8"
 summary = "Amaranth hardware definition language"
 dependencies = [
@@ -32,8 +32,8 @@ dependencies = [
     "pyvcd<0.5,>=0.2.2",
 ]
 files = [
-    {file = "amaranth-0.5.0-py3-none-any.whl", hash = "sha256:3d05d38864d6e88e40db93ed29ac0bee7f2a351d12810d4414f5b65a7cb0e23f"},
-    {file = "amaranth-0.5.0.tar.gz", hash = "sha256:9d2a1893d6ac938e0ff3983892eff5b56033e06691cc89674eb8d500dc46cdf6"},
+    {file = "amaranth-0.5.1-py3-none-any.whl", hash = "sha256:2d370cc5b97e2472aab0a4eca515ab7f5116274550bd454132520eaec6068fb6"},
+    {file = "amaranth-0.5.1.tar.gz", hash = "sha256:58b01efcec24c3696a7465e97a6e62f46466afab1f956a6eb00bda4b791c8345"},
 ]
 
 [[package]]
@@ -51,17 +51,17 @@ files = [
 
 [[package]]
 name = "amaranth"
-version = "0.5.0"
+version = "0.5.1"
 extras = ["builtin-yosys"]
 requires_python = "~=3.8"
 summary = "Amaranth hardware definition language"
 dependencies = [
     "amaranth-yosys>=0.40",
-    "amaranth==0.5.0",
+    "amaranth==0.5.1",
 ]
 files = [
-    {file = "amaranth-0.5.0-py3-none-any.whl", hash = "sha256:3d05d38864d6e88e40db93ed29ac0bee7f2a351d12810d4414f5b65a7cb0e23f"},
-    {file = "amaranth-0.5.0.tar.gz", hash = "sha256:9d2a1893d6ac938e0ff3983892eff5b56033e06691cc89674eb8d500dc46cdf6"},
+    {file = "amaranth-0.5.1-py3-none-any.whl", hash = "sha256:2d370cc5b97e2472aab0a4eca515ab7f5116274550bd454132520eaec6068fb6"},
+    {file = "amaranth-0.5.1.tar.gz", hash = "sha256:58b01efcec24c3696a7465e97a6e62f46466afab1f956a6eb00bda4b791c8345"},
 ]
 
 [[package]]

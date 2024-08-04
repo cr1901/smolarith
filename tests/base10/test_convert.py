@@ -11,7 +11,7 @@ def basic_tb(mod):
             await ctx.delay(1.0 / 12e6)
             ctx.set(m.inp, i)
 
-            for n in range(m.width):
+            for n in range(m.outp.shape().length):
                 d = i % 10
                 i //= 10
                 assert ctx.get(m.outp[n]) == d
@@ -60,7 +60,7 @@ def base10_tb(mod):
         # TODO: Create some guarantees about latency?
         await ctx.tick().until(m.outp.valid == 1)
 
-        for n in range(m.width):
+        for n in range(m.outp.payload.shape().length):
             d = val % 10
             val //= 10
             assert ctx.get(m.outp.payload[n]) == d
