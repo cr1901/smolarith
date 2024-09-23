@@ -5,6 +5,9 @@
 # This is not a science, and I don't directly use commits to generate a
 # CHANGELOG.md. This is simply meant to help me organize commits neatly to make
 # the "real" CHANGELOG.md.
+#
+# If tags for previous releases exist, initial generation is done with "git-cliff".
+# All other usage will be done with "git-cliff --unreleased --tag [tag]".
 
 [changelog]
 # changelog header
@@ -98,7 +101,7 @@ filter_commits = false
 # regex for matching git tags
 tag_pattern = "v[0-9].*"
 # regex for skipping tags
-skip_tags = "v0.1.0-beta.1"
+skip_tags = ""
 # regex for ignoring tags
 ignore_tags = ""
 # sort the tags topologically
