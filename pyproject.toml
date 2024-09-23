@@ -60,7 +60,7 @@ write_to = "smolarith/version.txt"
 dev = [
     "pytest>=7.4.2",
     "pytest-sphinx>=0.6.0",
-    "pytest-amaranth-sim @ git+https://github.com/cr1901/pytest-amaranth-sim",
+    "pytest-amaranth-sim>=0.1.0",
     "pytest-xdist>=3.6.1",
 ]
 doc = [
