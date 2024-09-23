@@ -11,6 +11,10 @@ name: CI
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12', 'pypy-3.8',
+                         'pypy-3.9', 'pypy-3.10']
     steps:
     - name: Check out source code
       uses: actions/checkout@v4
@@ -18,6 +22,9 @@ jobs:
         fetch-depth: 0
     - name: Set up Poetry and PDM
       uses: pdm-project/setup-pdm@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: true
     - name: Install dependencies
       run: |
         pdm install --dev
