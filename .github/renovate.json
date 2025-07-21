@@ -6,6 +6,11 @@
     "group:all",
     ":approveMajorUpdates"
   ],
-  "baseBranches": ["main", "next"],
-  "lockFileMaintenance": { "enabled": true }
+  "baseBranchPatterns": [
+    "main",
+    "next"
+  ],
+  "lockFileMaintenance": {
+    "enabled": true
+  }
 }
